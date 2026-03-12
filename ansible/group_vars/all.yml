@@ -1,6 +1,6 @@
 ---
 # Define as variáveis de caminho para o localhost
-repo_dir: "{{ lookup('env', 'HOME') }}/HIAAC-FL-Testbed/ansible"
+repo_dir: "{{ lookup('env', 'HOME') }}/HIAAC-FL-Testbed-SBRC/ansible"
 testbed_dir: "{{ lookup('env', 'HOME') }}/TESTBED/ansible"
 vault_pass_file: "{{ testbed_dir }}/.ansible_vault_pass"
 server_pid_file: "{{ testbed_dir }}/server.pid"

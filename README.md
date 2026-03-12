@@ -47,7 +47,7 @@ Veja [demo/README.md](demo/README.md) para detalhes e customização.
 
 ## 🕹️ Execução de Experimentos (testbed físico)
 
-A execução é feita pela interface Streamlit, que centraliza o ciclo de vida completo de um experimento — do upload do modelo até o download dos resultados. Para um passo-a-passo visual com screenshots, veja o [Guia_de_uso.md](Guia_de_uso.md).
+A execução é feita pela interface Streamlit, que centraliza o ciclo de vida completo de um experimento — do upload do modelo até o download dos resultados.
 
 ### Preparação do modelo
 
@@ -64,18 +64,25 @@ Há três modelos de exemplo prontos em `MODELOS_exemplos/Modelos/`, em variante
 
 ### Fluxo do experimento
 
-**1. Deploy** — Antes de rodar, os arquivos do modelo precisam ser distribuídos para todos os dispositivos. Pelo Streamlit (*Operações → Deploy & Scripts*), os playbooks Ansible fazem isso automaticamente: copiam os arquivos, instalam as dependências e configuram os ambientes virtuais em todos os nós.
+**1. Upload do modelo** — Na aba *Arquivos*, faça upload de um `.zip` com o código do modelo. O Streamlit extrai os arquivos em `~/HIAAC-FL-Testbed-SBRC/files_to_copy/`, que é o diretório fonte para o deploy.
 
-**2. Execução** — Ao clicar em "Rodar run.sh", o `run.sh` executa as seguintes etapas em sequência:
+**2. Deploy** — Na aba *Operações*, clique em "Executar ansible-playbook". Este botão executa `ansible/build.yaml`, que:
+- Copia os arquivos de `files_to_copy/` para `~/app/` em todos os dispositivos e no servidor local
+- Cria o venv `~/app/.venv` em cada dispositivo usando `uv` e instala o `requirements.txt`
 
-1. Para processos remanescentes de execuções anteriores e limpa os logs antigos
-2. Sobe o servidor Flower via Ansible (`playbooks/deploy/start_server.yaml`)
-3. Inicia o `tcpdump` para captura do tráfego de rede dos clientes
-4. Dispara os clientes em todos os dispositivos via Ansible (`playbooks/deploy/start_clients.yaml`)
-5. Aguarda o fim do servidor e dos clientes
-6. Para o `tcpdump` e copia os logs de volta ao servidor (`playbooks/after_run/copy_to_server.yaml`)
+> O `~/app/` nos dispositivos e no servidor é um diretório **fora do repositório**, gerenciado pelos playbooks.
 
-**3. Resultados** — Com o experimento concluído, os logs ficam disponíveis para download pela aba de logs da GUI, com ou sem o `.pcap` de rede.
+**3. Execução** — Clique em "Rodar run.sh". O script executa em sequência:
+
+1. Para processos remanescentes de execuções anteriores
+2. Limpa os logs antigos (no servidor e em todos os dispositivos)
+3. Sobe o servidor Flower localmente via Ansible
+4. Inicia o `tcpdump` filtrando a porta 8080 (tráfego gRPC do Flower)
+5. Dispara os clientes em todos os dispositivos via Ansible
+6. Monitora até o servidor encerrar (após todos os rounds)
+7. Para o `tcpdump` e faz rsync dos logs de todos os dispositivos para `~/app/logs/`
+
+**4. Resultados** — Na aba *Logs*, baixe os CSVs de métricas ou o pacote completo com o `.pcap`. Na aba *Gráficos*, visualize accuracy, loss e métricas de hardware interativamente.
 
 ---
 
@@ -101,36 +108,134 @@ app/logs/
 
 ## ⚙️ Configuração do Ambiente
 
-### Pré-requisitos
+### Pré-requisitos (na máquina / computador / servidor)
 
 - Python 3.11+
 - Ansible 2.15+
-- `uv` (gerenciador de ambientes Python nos dispositivos)
-- Dispositivos acessíveis via SSH na rede configurada
+- `uv` instalado localmente
+- `sudo` sem senha para `tcpdump` (usado pelo `run.sh` para captura de rede)
+- Acesso SSH aos dispositivos do cluster
 
-### Inventário
+### 1. Instalar dependências
 
-O arquivo `ansible/inventory` **não é versionado** (contém IPs e credenciais da sua rede). Use o template incluído:
+Instale **Python 3.11+**, **Ansible 2.15+** e **uv** usando o gerenciador de pacotes da sua distro/sistema. Exemplo no Ubuntu/Debian:
+
+```bash
+# Python 3.11 + venv (no Debian/Ubuntu vêm em pacotes separados; no Arch/macOS, venv já vem junto com o Python)
+sudo apt install python3.11 python3.11-venv
+
+# Ansible (exemplo: apt)
+sudo apt install ansible
+
+# tcpdump — necessário para captura de tráfego de rede durante os experimentos
+sudo apt install tcpdump
+
+# uv — instalador oficial, funciona em qualquer sistema
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 2. Clonar o repositório
+
+> **Atenção:** Clone diretamente em `~` (home), não em subpastas como `~/Desktop`. Os playbooks Ansible constroem todos os caminhos a partir de `~/HIAAC-FL-Testbed-SBRC` — qualquer outro local vai quebrar o deploy.
+
+```bash
+cd ~
+git clone https://github.com/artur-rozados/HIAAC-FL-Testbed-SBRC.git
+cd ~/HIAAC-FL-Testbed-SBRC
+```
+
+Crie o venv e instale as dependências da GUI Streamlit:
+
+```bash
+# Usando uv (recomendado — já instalado no passo anterior)
+uv venv .venv --python python3.11
+uv pip install -r requirements.txt
+```
+
+> **Nota:** Este `.venv` é exclusivo da GUI Streamlit. Os dispositivos remotos e o servidor FL usam um venv separado em `~/app/.venv`, criado automaticamente pelo botão de deploy.
+
+### 3. Configurar o inventário Ansible
+
+O arquivo `ansible/inventory` não é versionado. Use o template incluso:
 
 ```bash
 cp ansible/inventory.example ansible/inventory
-# edite ansible/inventory com seus IPs e usuários
+# Edite com seus IPs e usuários
 ```
 
-As senhas são armazenadas criptografadas via Ansible Vault em `ansible/group_vars/all/vault.yml`. Crie o arquivo de senha local:
+### 4. Configurar as credenciais (Ansible Vault)
+
+As senhas dos dispositivos são armazenadas criptografadas em `ansible/group_vars/all/vault.yml` (não versionado). Use o template incluso:
 
 ```bash
+cp ansible/group_vars/all/vault.yml.example ansible/group_vars/all/vault.yml
+# Edite vault.yml com as senhas reais dos seus dispositivos
+```
+
+Depois criptografe e salve a senha de descriptografia:
+
+```bash
+ansible-vault encrypt ansible/group_vars/all/vault.yml
+# Digite e confirme uma senha — esta é a senha do vault
+
 echo "sua-senha-do-vault" > ~/.ansible_vault_pass
 chmod 600 ~/.ansible_vault_pass
 ```
 
-### GUI Streamlit
+### 5. Configurar acesso SSH
+
+O `ansible.cfg` usa autenticação por chave (`~/.ssh/id_ed25519`). Distribua a chave para todos os dispositivos:
 
 ```bash
-# No servidor central
-cd HIAAC-FL-Testbed/
-source .venv/bin/activate
-streamlit run streamlit_app.py
+# Gerar a chave (se ainda não tiver)
+ssh-keygen -t ed25519
+
+# Copiar para cada dispositivo
+ssh-copy-id pi@<ip-do-raspberry>
+ssh-copy-id jetson@<ip-do-jetson>
+```
+
+> **Jetsons com senha no inventário:** Se preferir autenticação por senha nos Jetsons (via `ansible_ssh_pass` no inventário), remova ou comente a linha `private_key_file` no `ansible.cfg`.
+
+### 6. Instalar o `uv` nos dispositivos (uma vez por infraestrutura)
+
+O botão de deploy do Streamlit usa `uv` para criar venvs nos dispositivos, mas não instala o `uv` em si. Rode este playbook uma única vez para preparar todos os dispositivos:
+
+```bash
+ansible-playbook -i ansible/inventory \
+  ansible/playbooks/setup/install_uv_on_devices.yaml \
+  --vault-password-file ~/.ansible_vault_pass
+```
+
+### 7. Autorizar `tcpdump` sem senha de sudo
+
+**Execute isto na sua máquina** (o servidor que vai orquestrar os experimentos). O `run.sh` chama `sudo tcpdump` e `sudo pkill` para capturar e encerrar a captura de rede — sem essa configuração, o script trava esperando senha:
+
+```bash
+# Remove qualquer regra anterior (evita erro se houver arquivo inválido de tentativa anterior)
+sudo rm -f /etc/sudoers.d/testbed-tcpdump
+
+# Confirme os paths no seu sistema
+which tcpdump   # normalmente /usr/bin/tcpdump
+which pkill     # normalmente /usr/bin/pkill
+
+# Aplique a regra (ajuste os paths acima se forem diferentes)
+echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/tcpdump, /usr/bin/pkill" \
+  | sudo tee /etc/sudoers.d/testbed-tcpdump
+sudo chmod 440 /etc/sudoers.d/testbed-tcpdump
+
+# Verifique que a sintaxe está correta
+sudo visudo -c -f /etc/sudoers.d/testbed-tcpdump
+```
+
+> `tcpdump` e `pkill` ficam em `/usr/bin/` na grande maioria das distros Linux. Se `which` retornar outro path, substitua na linha do `echo` antes de aplicar.
+
+### 8. Subir a GUI Streamlit
+
+```bash
+cd ~/HIAAC-FL-Testbed-SBRC
+uv run streamlit run streamlit_app.py
+# Acesse: http://localhost:8501
 ```
 
 ---
@@ -138,7 +243,7 @@ streamlit run streamlit_app.py
 ## 📂 Estrutura do Repositório
 
 ```
-HIAAC-FL-Testbed/
+HIAAC-FL-Testbed-SBRC/
 ├── ansible/
 │   ├── inventory.example            # template de inventário (copie e edite)
 │   ├── group_vars/                  # variáveis por grupo (credenciais via vault)
@@ -164,5 +269,5 @@ HIAAC-FL-Testbed/
 │   └── *.png                        # screenshots da GUI
 ├── streamlit_app.py                 # interface gráfica principal
 ├── run.sh                           # script de execução do experimento
-└── Guia_de_uso.md                   # guia rápido com screenshots
+└── force_stop.sh                    # para todos os processos imediatamente
 ```

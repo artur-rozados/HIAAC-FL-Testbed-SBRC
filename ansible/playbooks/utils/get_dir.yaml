@@ -20,7 +20,7 @@
 
 - name: Set local main folder
   ansible.builtin.set_fact:
-    path_local_main_folder: "{{ local_dir.stdout }}/HIAAC-FL-Testbed"
+    path_local_main_folder: "{{ local_dir.stdout }}/HIAAC-FL-Testbed-SBRC"
 
 - name: Set app folder [Server]
   ansible.builtin.set_fact:

@@ -52,7 +52,7 @@ echo "Servidor finalizado, aguardando 15s para finalizar captura..."
 sleep 15
 
 # Para o tcpdump
-sudo kill $TCPDUMP_PID 2>/dev/null || true
+sudo pkill -x tcpdump 2>/dev/null || true
 echo "Captura de rede finalizada: ${FILENAME}"
 
 ansible-playbook -i ansible/inventory ansible/playbooks/after_run/copy_to_server.yaml --vault-password-file ~/.ansible_vault_pass -e "PYTHON_VERSION=python3.11" > save_client_data.log

@@ -16,6 +16,7 @@ MODELOS_exemplos/modelos_old
 
 # Arquivos sensíveis
 ansible/inventory
+ansible/group_vars/all/vault.yml
 .ansible_vault_pass
 *.vault_pass
 
