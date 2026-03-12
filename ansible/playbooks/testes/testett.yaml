@@ -1,0 +1,10 @@
+---
+- hosts: Raspberry_Pi
+  become: yes
+  vars_files:
+    - "{{ lookup('env', 'HOME') }}/ansible/HIAAC-FL-Testbed/vault.yml"
+
+  tasks:
+    - name: Exibir o valor de ansible_env.HOME
+      debug:
+        var: ansible_env.HOME

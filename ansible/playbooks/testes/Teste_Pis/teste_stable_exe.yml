@@ -1,0 +1,18 @@
+---
+
+- hosts: Raspberry_Pi
+  become: yes
+
+  tasks:
+
+    - name: Install screen
+      apt:
+        name: screen
+        state: present
+        update_cache: yes
+
+    - name: Iniciar teste em screen como usuário pi
+      become_user: pi
+      shell: screen -dmS teste_pi /home/pi/teste_pi.sh
+      args:
+        chdir: /home/pi

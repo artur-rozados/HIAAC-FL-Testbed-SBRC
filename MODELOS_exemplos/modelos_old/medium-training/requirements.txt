@@ -1,0 +1,4 @@
+flwr==1.9.0
+flwr[simulation]
+tensorflow
+flwr_datasets

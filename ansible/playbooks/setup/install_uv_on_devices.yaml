@@ -1,0 +1,13 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: yes
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+    
+    - name: Install uv
+      ansible.builtin.shell:
+        cmd: "curl -LsSf https://astral.sh/uv/install.sh | sh"

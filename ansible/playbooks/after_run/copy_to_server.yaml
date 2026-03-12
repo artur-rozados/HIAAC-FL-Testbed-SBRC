@@ -1,0 +1,35 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+    
+    - name: Criar pasta local para o host {{ inventory_hostname }}
+      ansible.builtin.file:
+        path: "{{ path_local_logs }}/client-{{ inventory_hostname }}"
+        state: directory
+      delegate_to: localhost
+
+    - name: Sincronizar (Baixar) a pasta de logs dos clientes
+      ansible.builtin.synchronize:
+        mode: pull
+        src: "{{ path_remote_logs }}/"
+        dest: "{{ path_local_logs }}/client-{{ inventory_hostname }}/"
+        # recursive: yes # It's default 
+
+# Garantir que a pasta de pcaps existe (o tcpdump já salva diretamente em ~/app/logs/pcaps/)
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+    
+    - name: Garantir que pasta de pcaps existe
+      ansible.builtin.file:
+        path: "{{ path_local_logs }}/pcaps"
+        state: directory
+      ignore_errors: yes 

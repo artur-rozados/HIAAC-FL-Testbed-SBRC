@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: .
+      network: host
+    environment:
+      SERVER_ROLE: server
+    network_mode: host
+
+  client0:
+    build:
+      context: .
+      network: host
+    environment:
+      SERVER_ROLE: client
+      SERVER_HOST: "127.0.0.1"
+      CLIENT_ID: "0"
+      NUM_CLIENTS: "2"
+    depends_on:
+      - server
+    restart: on-failure
+    network_mode: host
+
+  client1:
+    build:
+      context: .
+      network: host
+    environment:
+      SERVER_ROLE: client
+      SERVER_HOST: "127.0.0.1"
+      CLIENT_ID: "1"
+      NUM_CLIENTS: "2"
+    depends_on:
+      - server
+    restart: on-failure
+    network_mode: host
+
+

@@ -1,0 +1,11 @@
+---
+
+- hosts: all  # Roda o Playbook em todos os IPs do inventário
+  vars_files:
+    - "{{ lookup('env', 'HOME') }}/ansible/HIAAC-FL-Testbed/vault.yml"
+
+  tasks:
+
+
+  - name: Ping
+    ping:

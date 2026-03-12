@@ -1,0 +1,37 @@
+# Start and end network telemetry
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+    - name: Exibir mensagem de início
+      ansible.builtin.debug:
+        msg: "================ INICIANDO captura de dados de rede ================"
+
+
+
+
+#================ playbook de captura ================
+
+- name: Iniciar captura
+  ansible.builtin.import_playbook: start_capture.yaml
+
+
+
+
+- name: Continuar
+  hosts: localhost
+  tasks:
+
+
+    - pause:
+          seconds: 15
+          prompt: "Captura rodando..."
+
+
+#================ playbook de término ================
+
+- name: Termina captura
+  ansible.builtin.import_playbook: stop_capture.yaml

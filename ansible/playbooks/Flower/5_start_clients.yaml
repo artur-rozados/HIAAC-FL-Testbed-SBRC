@@ -1,0 +1,60 @@
+---
+- hosts:
+    - Raspberry_Pi
+    - Jetsons
+  become: no
+#  vars_files:
+#    - "{{ lookup('env', 'HOME') }}/HIAAC-FL-Testbed/ansible/vault.yml"
+
+  tasks:
+
+    # --- ETAPA 1: Descoberta ---
+    - name: Descobrir informações do usuário, home e grupo
+      block:
+        - shell: "getent passwd {{ ansible_user }} | cut -d: -f6"
+          register: user_home_dir_output
+          changed_when: false
+          become: no
+
+        - shell: "id -gn {{ ansible_user }}"
+          register: user_group_output
+          changed_when: false
+          become: no
+
+        - set_fact:
+            correct_user_home: "{{ user_home_dir_output.stdout }}"
+            correct_user_group: "{{ user_group_output.stdout }}"
+
+    # --- ETAPA 2: Iniciar o cliente ---
+
+    - name: Garantir que o diretório do cliente/log exista
+      file:
+        # Garantimos que o diretório DENTRO de FilesTestbed exista
+        path: "{{ correct_user_home }}/FilesTestbed/flower_client"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ correct_user_group }}"
+        mode: '0755'
+
+
+    - name: Limpar cache antigo do Python (__pycache__)
+      ansible.builtin.file:
+        # Deleta o diretório de cache que o Python cria
+        path: "{{ correct_user_home }}/FilesTestbed/flower_client/__pycache__"
+        state: absent # Garante que o diretório não exista
+      ignore_errors: yes # Se a pasta não existir, não quebra o playbook
+
+    - name: Matar processos 'client.py' zumbis anteriores (não se preocupe com erros!)
+      ansible.builtin.shell:
+        # Tenta matar qualquer processo 'client.py'
+        cmd: "pkill -9 -f client.py"
+      changed_when: false
+      ignore_errors: yes
+
+
+    - name: Iniciar o script do cliente Flower em modo assíncrono
+      shell:
+        cmd: "nohup {{ correct_user_home }}/FilesTestbed/venvs/myenv/bin/python client.py > {{ correct_user_home }}/FilesTestbed/flower_client/client.log 2>&1 &"
+        chdir: "{{ correct_user_home }}/FilesTestbed/flower_client"
+
+      async: 10

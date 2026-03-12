@@ -1,0 +1,52 @@
+---
+- name: Obter dir remoto
+  ansible.builtin.command: pwd
+  register: remote_dir
+
+- name: Obter dir local
+  ansible.builtin.command: echo ~
+  delegate_to: localhost
+  register: local_dir
+  changed_when: false
+# Create a file
+- name: Create dir [Clients]
+  ansible.builtin.shell:
+    cmd: "mkdir -p app"
+
+- name: Create dir [Server]
+  ansible.builtin.command: "mkdir -p {{local_dir.stdout}}/app"
+  delegate_to: localhost
+  changed_when: true
+
+- name: Set local main folder
+  ansible.builtin.set_fact:
+    path_local_main_folder: "{{ local_dir.stdout }}/HIAAC-FL-Testbed"
+
+- name: Set app folder [Server]
+  ansible.builtin.set_fact:
+    path_local_app_folder: "{{ local_dir.stdout }}/app"
+
+- name: Set app folder [Client]
+  ansible.builtin.set_fact:
+    path_remote_app_folder: "{{ remote_dir.stdout }}/app"
+
+- name: Set copy folder
+  ansible.builtin.set_fact:
+    path_files_to_copy: "{{ path_local_main_folder }}/files_to_copy"
+
+- name: Set monitoring scripts folder
+  ansible.builtin.set_fact:
+    path_monitoring_scripts: "{{ path_local_main_folder }}/monitoring_scripts"
+
+- name: Set Remote Virtual Env Path
+  ansible.builtin.set_fact:
+    path_remote_venv: "{{ path_remote_app_folder }}/.venv"
+
+- name: Set Local Virtual Env Path
+  ansible.builtin.set_fact:
+    path_local_venv: "{{ path_local_app_folder }}/.venv"
+
+- name: Set Log file path
+  ansible.builtin.set_fact:
+    path_local_logs: "{{ path_local_app_folder }}/logs"
+    path_remote_logs: "{{ path_remote_app_folder }}/logs"

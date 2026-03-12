@@ -1,0 +1,67 @@
+---
+- hosts: localhost 
+
+  tasks:
+    # --- ETAPA 1: Lógica para descobrir dinamicamente o usuário, home e GRUPO ---
+    - name: Descobrir o home directory real do usuário de conexão
+      shell: "getent passwd {{ ansible_env.USER }} | cut -d: -f6"
+      register: user_home_dir_output
+      changed_when: false
+      become: no
+
+    - name: Descobrir o grupo primário real do usuário de conexão
+      shell: "id -gn {{ ansible_env.USER }}" 
+      register: user_group_output
+      changed_when: false
+      become: no
+
+    - name: Definir variáveis de fato com os caminhos e grupos corretos
+      set_fact:
+        correct_user_home: "{{ user_home_dir_output.stdout }}"
+        correct_user_group: "{{ user_group_output.stdout }}"
+
+
+    # --- ETAPA 2: Instalar uv e criar/configurar venv ---
+    - name: Garantir dependências do sistema para instalar UV
+      apt:
+        name:
+          - curl
+        state: present
+        update_cache: yes
+      become: yes
+
+    - name: Instalar uv
+      ansible.builtin.shell:
+        cmd: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+      become: no
+
+    - name: Criar o diretório para os ambientes virtuais
+      file:
+        path: "{{ testbed_dir }}/venvs"
+        state: directory
+        owner: "{{ ansible_env.USER }}"
+        group: "{{ correct_user_group }}"
+        mode: '0755'
+      become: yes
+
+    - name: Criar o ambiente virtual 'myenv'
+      command:
+        cmd: "{{ ansible_env.HOME }}/.local/bin/uv venv --python 3.11 {{ testbed_dir }}/venvs/myenv"
+        creates: "{{ testbed_dir }}/venvs/myenv/bin/activate"
+      become: no
+
+    - name: Garantir que pip está presente na venv
+      command: "{{ testbed_dir }}/venvs/myenv/bin/python -m ensurepip --upgrade"
+      args:
+        creates: "{{ testbed_dir }}/venvs/myenv/bin/pip"
+      become: no
+
+    - name: Instalar requirements (tarefa de longa duração)
+      pip:
+        requirements: "{{ testbed_dir }}/requirements.txt"
+        virtualenv: "{{ testbed_dir }}/venvs/myenv"
+      async: 1800
+      poll: 15
+      become: no

@@ -1,0 +1,14 @@
+---
+
+- hosts: Raspberry_Pi
+  become: yes
+
+  tasks:
+    - name: Copiar script de teste
+      copy:
+        src: teste_pi.sh
+        dest: /home/pi/teste_pi.sh
+        owner: pi
+        group: pi
+        mode: '0755'
+

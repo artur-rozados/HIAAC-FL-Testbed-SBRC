@@ -1,0 +1,73 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    server_pid_file: "/home/hiaac/TESTBED/server.pid"
+    tcpdump_pid_file: "/home/hiaac/TESTBED/tcpdump.pid"
+    netcaps_dir: "/home/hiaac/TESTBED/captures/network"
+
+  tasks:
+    #- name: Parar processos anteriores
+     # (opcional) use se quiser limpar antes de iniciar novos processos
+
+    - name: Encerrar coleta de dados de rede (tcpdump)
+      become: yes
+      ansible.builtin.shell: |
+        if [ -f "{{ tcpdump_pid_file }}" ]; then
+          # SIGINT garante fechamento correto do arquivo .pcap
+          kill -INT $(cat "{{ tcpdump_pid_file }}") 2>/dev/null || true
+          rm -f "{{ tcpdump_pid_file }}"
+        fi
+      args: { executable: /bin/bash }
+
+    - name: Encerrar o servidor Flower
+      ansible.builtin.shell: |
+        if [ -f "{{ server_pid_file }}" ]; then
+          # SIGINT tenta parada limpa, depois SIGTERM se ainda estiver vivo
+          kill -INT $(cat "{{ server_pid_file }}") 2>/dev/null || true
+          sleep 2
+          kill -TERM $(cat "{{ server_pid_file }}") 2>/dev/null || true
+          rm -f "{{ server_pid_file }}"
+        fi
+      args: { executable: /bin/bash }
+
+    # Ler o run_id salvo no start
+    - name: Ler run_id do último run
+      ansible.builtin.command: cat "{{ netcaps_dir }}/run.id"
+      register: runid_out
+      changed_when: false
+
+    - name: Definir run_id a partir do arquivo
+      ansible.builtin.set_fact:
+        run_id: "{{ runid_out.stdout | trim }}"
+
+    # Espera para garantir que o tcpdump fechou o arquivo
+    - name: Aguardar fechamento do arquivo pcap
+      ansible.builtin.pause:
+        seconds: 1
+
+    # Comprimir o pcap do run (substitui pelo .pcap.gz)
+    - name: Comprimir pcap do run (gzip -3, compatível com Wireshark/Scapy)
+      ansible.builtin.shell: |
+        PCAP="{{ netcaps_dir }}/flwr_{{ run_id }}.pcap"
+        if [ -f "$PCAP" ]; then
+          gzip -3 -f "$PCAP"
+        fi
+      args: { executable: /bin/bash }
+
+    - name: Confirmar que processos foram encerrados
+      ansible.builtin.debug:
+        msg:
+          - "Servidor e tcpdump encerrados (se existiam)."
+
+    # mostra o arquivo final
+    - name: Listar pcap comprimido deste run (se existir)
+      ansible.builtin.shell: |
+        ls -lh "{{ netcaps_dir }}/flwr_{{ run_id }}.pcap.gz" 2>/dev/null || echo "Nenhum .pcap.gz encontrado"
+      args: { executable: /bin/bash }
+      register: list_gz
+      changed_when: false
+
+    - name: Mostrar resultado da listagem
+      ansible.builtin.debug:
+        msg: "{{ list_gz.stdout_lines }}"

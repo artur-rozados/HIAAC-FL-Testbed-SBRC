@@ -1,0 +1,24 @@
+---
+- hosts: all
+  become: yes
+
+  # Carrega o arquivo vault a partir do caminho correto
+  vars_files:
+    - "{{ lookup('env', 'HOME') }}/ansible/HIAAC-FL-Testbed/vault.yml"
+
+  tasks:
+    - name: Atualizar o cache de pacotes (apt update)
+      ansible.builtin.apt:
+        update_cache: yes
+      # Boa prática para não mostrar "mudança" toda vez
+      changed_when: false 
+
+    - name: Atualizar todos os pacotes do sistema (apt upgrade)
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Instalar requirements 
+      ansible.builtin.apt:
+        name:
+          - neofetch
+        state: present

@@ -1,0 +1,47 @@
+---
+# Play 1: Setup venv nos clientes (Pis e Jetsons)
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+    
+    - name: Setup e instalação venv
+      block:
+        - name: Create environment using uv [Clients]
+          ansible.builtin.shell:
+            cmd: "uv venv {{ path_remote_venv }} --python {{ PYTHON_VERSION }} --clear"
+        
+        - name: Install requirements [Clients]
+          ansible.builtin.shell:
+            cmd: "uv pip install -r {{ path_remote_app_folder }}/requirements.txt"
+      
+      environment:
+        PATH: "{{ remote_dir.stdout }}/.local/bin:{{ ansible_env.PATH }}"
+        VIRTUAL_ENV: "{{ path_remote_venv }}"
+
+
+# Play 2: Setup venv no servidor principal (localhost)
+- hosts: localhost
+  connection: local
+  become: no
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+    
+    - name: Setup e instalação venv [Server]
+      block:
+        - name: Create environment using uv [Server]
+          ansible.builtin.command: "uv venv {{ path_local_venv }} --python {{ PYTHON_VERSION }} --clear"
+          changed_when: true
+        
+        - name: Install requirements [Server]
+          ansible.builtin.command: "uv pip install -r {{ path_local_app_folder }}/requirements.txt"
+          changed_when: true
+      environment:
+        PATH: "{{ local_dir.stdout }}/.local/bin:{{ ansible_env.PATH }}"
+        VIRTUAL_ENV: "{{ path_local_venv }}"

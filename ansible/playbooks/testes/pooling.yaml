@@ -1,0 +1,24 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+- name: FASE 2,1 - Iniciando o Servidor FL - server.py
+  ansible.builtin.import_playbook: ../Flower/4_start_server.yaml
+
+- name: FASE 2.4 - Iniciando os Clientes Flower
+  ansible.builtin.import_playbook: ../Flower/5_start_clients.yaml
+
+- name: Continuar
+  hosts: localhost
+  tasks:
+  - name: FASE 2.5 - Esperar o experimento (servidor) terminar
+    ansible.builtin.shell:
+      # Checa se o processo com o PID salvo ainda existe
+      cmd: "ps -p $(cat {{ server_pid_file }}) > /dev/null 2>&1"
+    register: server_process_check
+    until: server_process_check.rc != 0 # Continua até o comando falhar (processo não existe mais)
+    retries: 360 # Tenta por até 1 hora (360 retries * 10 segundos = 3600s)
+    delay: 10    # Checa a cada 10 segundos
+    failed_when: false
+  

@@ -1,0 +1,13 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+# TODO: Connect only one time to devices
+- name: Copying stage
+  ansible.builtin.import_playbook: playbooks/setup/copy_files_to_devices.yaml
+# # TODO: Only need to install UV one time
+# - name: Install uv
+#   ansible.builtin.import_playbook: playbooks/setup/install_uv_on_devices.yaml
+
+- name: Creating .venvs
+  ansible.builtin.import_playbook: playbooks/setup/create_env_on_devices.yaml

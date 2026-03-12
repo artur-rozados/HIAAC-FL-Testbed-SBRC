@@ -1,0 +1,30 @@
+---
+- hosts: Jetsons  # Roda o Playbook em todas as Jetsons
+  become: yes
+
+  vars_files:
+    - "{{ lookup('env', 'HOME') }}/ansible/HIAAC-FL-Testbed/vault.yml"
+
+  tasks:
+    - name: Garantir que o Git está instalado
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+        
+    - name: Descobrir o diretório home do usuário alvo
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+      register: user_info
+      # Não precisamos de 'sudo' para apenas ler informações do usuário
+      become: no 
+
+    - name: Clonar ou atualizar o repositório no diretório home correto
+      ansible.builtin.git:
+        repo: "https://github.com/artur-rozados/Ansible-H.IAAC.git"
+        # Usamos a variável 'user_info' registrada na tarefa anterior
+        dest: "{{ user_info.home }}/ansible/HIAAC-FL-Testbed"
+        version: main
+        force: yes
+        update: yes
+      become_user: "{{ ansible_user }}"

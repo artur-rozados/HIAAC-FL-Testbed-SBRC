@@ -1,0 +1,15 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Run server in background
+      ansible.builtin.shell: "nohup {{ path_local_venv }}/bin/python {{ path_local_app_folder }}/server.py > {{ path_local_app_folder }}/server.log 2>&1 < /dev/null &"
+      delegate_to: localhost
+      run_once: true
+      changed_when: false

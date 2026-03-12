@@ -1,0 +1,66 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    testbed_dir: "/home/hiaac/TESTBED"
+    flower_port: 8080
+    server_pid_file: "/home/hiaac/TESTBED/server.pid"
+    tcpdump_pid_file: "/home/hiaac/TESTBED/tcpdump.pid"
+    netcaps_dir: "/home/hiaac/TESTBED/captures/network"
+    server_logs_dir: "/home/hiaac/TESTBED/captures/server"
+
+  tasks:
+    #- name: Apagar logs anteriores
+     # ansible.builtin.file:
+     #   path: "/tmp/server.log"
+     #   state: absent
+
+    - name: Criar ID da tarefa
+      ansible.builtin.set_fact:
+        run_id: "{{ lookup('pipe','date +%Y%m%d-%H%M%S') }}"
+
+    - name: Criar e verificar diretórios
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ netcaps_dir }}"
+        - "{{ server_logs_dir }}"
+
+    - name: Salvar run_id para o stop localizar o pcap
+      ansible.builtin.copy:
+        dest: "{{ netcaps_dir }}/run.id"
+        content: "{{ run_id }}\n"
+        mode: '0644'
+
+    - name: Iniciar coleta de dados de rede (tcpdump)
+      become: yes
+      ansible.builtin.shell: |
+        # Filtro: porta do Flower + ruídos comuns fora + sem IPv6
+        FILTER='tcp port {{ flower_port }} and not ip6 and not arp and not icmp and not icmp6 and not (udp port 67 or udp port 68) and not (udp port 5353) and not (udp port 1900)'
+
+        # (opcional) Para reduzir ainda mais, excluir ACK puro (IPv4) sem payload:
+        # FILTER="$FILTER and not \(tcp[13] & 0x10 != 0 and tcp[13] & 0x07 = 0 and (ip[2:2] - ((ip[0] & 0x0f) << 2) - ((tcp[12] >> 4) << 2)) = 0\)"
+
+        nohup tcpdump -i any -nn -s 0 -U $FILTER \
+          -w "{{ netcaps_dir }}/flwr_{{ run_id }}.pcap" \
+          > "{{ netcaps_dir }}/tcpdump_{{ run_id }}.log" 2>&1 &
+        echo $! > "{{ tcpdump_pid_file }}"
+      args: { executable: /bin/bash }
+
+    - name: Iniciar o script do server Flower
+      ansible.builtin.shell:
+        # Inicia o servidor em background e salva seu PID
+        cmd: >
+          nohup uv run server.py > /home/hiaac/TESTBED/captures/server/server_{{ run_id }}.log 2>&1 &
+          echo $! > {{ server_pid_file }}
+        chdir: "{{ testbed_dir }}"
+#      async: 10
+#      poll: 0
+
+    - name: Aguardar a criação do arquivo PID para evitar race conditions
+      ansible.builtin.wait_for:
+        path: "{{ server_pid_file }}"
+        state: present
+        timeout: 10
