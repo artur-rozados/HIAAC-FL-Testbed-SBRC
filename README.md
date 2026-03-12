@@ -26,6 +26,8 @@ O testbed é composto por três tipos de nós em rede isolada:
 | **Raspberry Pi 5** | 9 | Clientes FL — treinamento local com CPU ARM |
 | **NVIDIA Jetson Orin Nano** | 6 | Clientes FL — treinamento com GPU integrada |
 
+> ⚠️ **O servidor precisa ter o IP fixo `10.10.30.123`**, pois os clientes usam esse endereço para se conectar ao servidor Flower (porta 8080).
+
 A comunicação entre servidor e clientes durante o treinamento usa o framework [Flower (flwr)](https://flower.ai/) v1.9.0 na porta 8080, com estratégia FedAvg.
 
 Para usar o testbed com sua própria infraestrutura, copie `ansible/inventory.example` para `ansible/inventory` e edite com seus IPs e credenciais.
