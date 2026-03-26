@@ -1,0 +1,13 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Run clients with monitoring in background
+      ansible.builtin.shell:
+        cmd: "nohup {{ path_remote_venv }}/bin/python {{ path_remote_app_folder }}/run_client_with_monitoring.py > {{ path_remote_app_folder }}/client.log 2>&1 < /dev/null &"
+        chdir: "{{ path_remote_app_folder }}"

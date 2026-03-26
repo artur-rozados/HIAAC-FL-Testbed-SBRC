@@ -1,0 +1,62 @@
+- hosts: Pi_router
+  become: yes
+
+  tasks:
+    - name: Definir run_id se não for informado
+      ansible.builtin.set_fact:
+        run_id: "{{ lookup('pipe','date +%Y%m%d-%H%M%S') }}"
+      when: run_id is not defined or run_id | length == 0
+
+    - name: Iniciando análise de métricas de rede! (tcpdump; any; filtro leve)
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          mkdir -p /tmp/caps
+
+          # Identificador do treinamento para o outro playbook, stop_capture.yaml
+          echo "{{ run_id }}" > /tmp/current_run.id
+
+          # ===================================================================
+          # ==== DESCRIÇÃO ====
+          #
+          # O comando abaixo inicia o tcpdump em background (nohup ... &)
+          # O /bin/sh (ash) do OpenWrt não aceita comentários no meio
+          # dO comando, por isso os coloquei aqui.
+          #
+          #
+          # ==== Flags ====
+          # -i any      : Captura em TODAS as interfaces (Wi-Fi, LAN, WAN, etc)
+          # -nn         : Não resolve host/serviço (menos carga, logs "puros")
+          # -s 128      : Snaplen: cabeçalhos + opções TCP (suficiente p/ métricas)
+          # -B 8192     : Buffer maior p/ evitar drops em rajadas
+          # -U          : Flush por pacote (reduz perda se o processo morrer)
+          # -w ...      : Arquivo de saída .pcap
+          #
+          #
+          # ==== Filtro BPF ====
+          # SEM FILTRO (Capturando tudo)
+          #
+          #
+          # ==== FIM - DESCRIÇÃO ====
+          # ===================================================================
+
+
+          # Iniciar tcpdump
+
+          /usr/bin/nohup /usr/bin/tcpdump \
+            -i any \
+            -nn \
+            -s 128 \
+            -B 8192 \
+            -U \
+            -w /tmp/caps/fl-{{ run_id }}.pcap \
+            > /tmp/caps/tcpdump-{{ run_id }}.out 2>&1 &
+
+          echo $! > /tmp/tcpdump.pid
+          echo $! > /tmp/tcpdump-{{ run_id }}.pid
+      args:
+        executable: /bin/sh
+      async: 60
+      poll: 0
+
+#            '(tcp and (port 8080 or port 80 or port 443) and net 10.10.10.0/24)' \

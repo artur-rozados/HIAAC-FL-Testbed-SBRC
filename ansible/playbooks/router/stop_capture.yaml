@@ -1,0 +1,106 @@
+---
+- hosts: Pi_router
+  become: yes
+  vars:
+    remote_caps_dir: /tmp/caps
+    remote_pid_file: /tmp/tcpdump.pid
+    # run_id pode ser passado via -e run_id=teste1; se não vier, leremos do /tmp/current_run.id
+    run_id: "{{ run_id | default('') }}"
+    # diretório local para receber os arquivos
+    local_caps_dir: "{{ lookup('env', 'HOME') }}/TESTBED/captures/network"
+
+  tasks:
+    - name: Descobrir run_id automaticamente (se não informado)
+      ansible.builtin.shell: |
+        set -e
+        [ -s /tmp/current_run.id ] && cat /tmp/current_run.id || true
+      args: { executable: /bin/sh }
+      register: current_run_id
+      changed_when: false
+      when: run_id | length == 0
+
+    - name: Definir run_id efetivo
+      ansible.builtin.set_fact:
+        run_id: "{{ (run_id | length > 0) | ternary(run_id, current_run_id.stdout | default('') | trim) }}"
+
+    - name: Falhar se não houver run_id
+      ansible.builtin.fail:
+        msg: "run_id não informado e /tmp/current_run.id ausente. Passe -e run_id=MEU_ID ou rode o play de start antes."
+      when: run_id | length == 0
+
+    - name: Definir caminhos do run atual
+      ansible.builtin.set_fact:
+        remote_pcap_file: "{{ remote_caps_dir }}/fl-{{ run_id }}.pcap"
+        remote_log_file:  "{{ remote_caps_dir }}/tcpdump-{{ run_id }}.out"
+
+    - name: Garantir diretório local para receber capturas
+      delegate_to: localhost
+      become: no
+      ansible.builtin.file:
+        path: "{{ local_caps_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ler PID do tcpdump (se existir)
+      ansible.builtin.slurp:
+        src: "{{ remote_pid_file }}"
+      register: pid_file
+      ignore_errors: yes
+
+    - name: Parar tcpdump com SIGINT (graceful)
+      ansible.builtin.shell: |
+        PID="{{ pid_file.content | default('') | b64decode | trim }}"
+        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+          echo "Encerrando captura (PID=$PID)..."
+          kill -INT "$PID"
+          # aguarda até 5s para flush/fechamento do arquivo
+          for i in 1 2 3 4 5; do
+            kill -0 "$PID" 2>/dev/null || exit 0
+            sleep 1
+          done
+          kill -TERM "$PID" 2>/dev/null || true
+        fi
+      args: { executable: /bin/sh }
+      when: pid_file is defined and pid_file.content is defined
+
+    - name: Remover arquivo de PID
+      ansible.builtin.file:
+        path: "{{ remote_pid_file }}"
+        state: absent
+
+    - name: Verificar existência dos arquivos do run
+      ansible.builtin.shell: |
+        set -e
+        test -f "{{ remote_pcap_file }}" && echo "{{ remote_pcap_file }}"
+        test -f "{{ remote_log_file }}"  && echo "{{ remote_log_file }}"
+      args: { executable: /bin/sh }
+      register: files_to_fetch
+      changed_when: false
+
+    - name: Falhar se o .pcap do run não existir
+      ansible.builtin.fail:
+        msg: "Arquivo de captura não encontrado: {{ remote_pcap_file }}. Confirme o run_id={{ run_id }}."
+      when: files_to_fetch.stdout_lines is not defined or (remote_pcap_file not in files_to_fetch.stdout_lines)
+
+    - name: Baixar arquivos do run para a máquina de controle
+      ansible.builtin.fetch:
+        src: "{{ item }}"
+        dest: "{{ local_caps_dir }}/{{ item | basename }}"
+        flat: true
+      loop: "{{ files_to_fetch.stdout_lines | default([]) }}"
+
+    - name: (Opcional) Copiar também para repo_dir/data/pcaps
+      when: repo_dir is defined
+      delegate_to: localhost
+      become: no
+      ansible.builtin.copy:
+        src: "{{ local_caps_dir }}/"
+        dest: "{{ repo_dir }}/data/pcaps/"
+        mode: '0644'
+        remote_src: false
+
+    - name: (Opcional) limpar marcador do run atual
+      ansible.builtin.file:
+        path: /tmp/current_run.id
+        state: absent
+      ignore_errors: true

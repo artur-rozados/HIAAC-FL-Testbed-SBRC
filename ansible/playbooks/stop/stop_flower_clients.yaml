@@ -1,0 +1,8 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: yes
+  tasks:
+    - name: Stop Flower Client
+      ansible.builtin.shell: "pkill -f 'run_client_with_monitoring.py'; pkill -f 'client.py'; pkill -f 'monitor.sh'; true"

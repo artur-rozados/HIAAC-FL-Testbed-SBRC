@@ -1,0 +1,218 @@
+---
+# Bootstrap dependencies on Raspberry Pi and Jetson clients only.
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Resolve remote home directory for ansible_user
+      block:
+        - name: Read passwd entry for ansible_user
+          ansible.builtin.command: "getent passwd {{ ansible_user }}"
+          register: remote_passwd_entry
+          changed_when: false
+
+        - name: Set remote user home fact
+          ansible.builtin.set_fact:
+            remote_user_home: "{{ remote_passwd_entry.stdout.split(':')[5] }}"
+      rescue:
+        - name: Fail with clear SSH user guidance
+          ansible.builtin.fail:
+            msg: >-
+              Bootstrap falhou em {{ inventory_hostname }}. O usuario SSH
+              (ansible_user={{ ansible_user | default('undefined') }}) nao foi encontrado.
+              Ajuste ansible_user no inventario.
+
+    - name: Check curl availability on remote host
+      ansible.builtin.command: "which curl"
+      register: remote_curl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check python3 availability on remote host
+      ansible.builtin.command: "python3 --version"
+      register: remote_python_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check python3 venv module on remote host
+      ansible.builtin.command: "python3 -m venv --help"
+      register: remote_venv_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check pip for python3 on remote host
+      ansible.builtin.command: "python3 -m pip --version"
+      register: remote_pip_check
+      changed_when: false
+      failed_when: false
+
+    - name: Determine if remote apt packages are missing
+      ansible.builtin.set_fact:
+        remote_missing_system_packages: >-
+          {{
+            (remote_curl_check.rc != 0)
+            or (remote_python_check.rc != 0)
+            or (remote_venv_check.rc != 0)
+            or (remote_pip_check.rc != 0)
+          }}
+
+    - name: Validate sudo only when remote packages are missing
+      block:
+        - name: Check sudo escalation on remote host
+          ansible.builtin.command: whoami
+          changed_when: false
+          become: true
+      rescue:
+        - name: Fail with clear sudo guidance for remote host
+          ansible.builtin.fail:
+            msg: >-
+              Bootstrap falhou em {{ inventory_hostname }}. Pacotes do sistema estao faltando,
+              mas o usuario SSH nao possui sudo valido. Configure ansible_become_pass
+              (ou NOPASSWD) para permitir instalar dependencias (curl/python3/python3-venv/python3-pip).
+      when: remote_missing_system_packages
+
+    - name: Report curl already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: curl ja esta instalado."
+      when: remote_curl_check.rc == 0
+
+    - name: Install curl on remote host when missing
+      ansible.builtin.apt:
+        name: curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: remote_curl_check.rc != 0
+      become: true
+
+    - name: Report curl installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: curl instalado com sucesso."
+      when: remote_curl_check.rc != 0
+
+    - name: Report python3 already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3 ja esta instalado."
+      when: remote_python_check.rc == 0
+
+    - name: Install python3 on remote host when missing
+      ansible.builtin.apt:
+        name: python3
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: remote_python_check.rc != 0
+      become: true
+
+    - name: Report python3 installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3 instalado com sucesso."
+      when: remote_python_check.rc != 0
+
+    - name: Report python3-venv already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3-venv ja esta instalado."
+      when: remote_venv_check.rc == 0
+
+    - name: Install python3-venv on remote host when missing
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: remote_venv_check.rc != 0
+      become: true
+
+    - name: Report python3-venv installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3-venv instalado com sucesso."
+      when: remote_venv_check.rc != 0
+
+    - name: Report python3-pip already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3-pip ja esta instalado."
+      when: remote_pip_check.rc == 0
+
+    - name: Install python3-pip on remote host when missing
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: remote_pip_check.rc != 0
+      become: true
+
+    - name: Report python3-pip installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: python3-pip instalado com sucesso."
+      when: remote_pip_check.rc != 0
+
+    - name: Check uv binary on remote host
+      ansible.builtin.stat:
+        path: "{{ remote_user_home }}/.local/bin/uv"
+      register: remote_uv_stat
+
+    - name: Report uv already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: uv ja esta instalado em {{ remote_user_home }}/.local/bin/uv."
+      when: remote_uv_stat.stat.exists
+
+    - name: Install uv on remote host when missing
+      ansible.builtin.shell:
+        cmd: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        creates: "{{ remote_user_home }}/.local/bin/uv"
+      when: not remote_uv_stat.stat.exists
+
+    - name: Report uv installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: uv instalado em {{ remote_user_home }}/.local/bin/uv."
+      when: not remote_uv_stat.stat.exists
+
+    - name: Check vcgencmd availability on Raspberry Pi
+      ansible.builtin.command: "which vcgencmd"
+      register: remote_vcgencmd_check
+      changed_when: false
+      failed_when: false
+      when: "'Raspberry_Pi' in group_names"
+
+    - name: Report vcgencmd available on Raspberry Pi
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: vcgencmd encontrado para monitoramento."
+      when:
+        - "'Raspberry_Pi' in group_names"
+        - remote_vcgencmd_check.rc == 0
+
+    - name: Warn when vcgencmd is missing on Raspberry Pi
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ inventory_hostname }} nao possui vcgencmd. O treino vai continuar,
+          mas o monitoramento de hardware da Raspberry Pi ficara indisponivel.
+      when:
+        - "'Raspberry_Pi' in group_names"
+        - remote_vcgencmd_check.rc != 0
+
+    - name: Check tegrastats availability on Jetson
+      ansible.builtin.command: "which tegrastats"
+      register: remote_tegrastats_check
+      changed_when: false
+      failed_when: false
+      when: "'Jetsons' in group_names"
+
+    - name: Report tegrastats available on Jetson
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: tegrastats encontrado para monitoramento."
+      when:
+        - "'Jetsons' in group_names"
+        - remote_tegrastats_check.rc == 0
+
+    - name: Warn when tegrastats is missing on Jetson
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ inventory_hostname }} nao possui tegrastats. O treino vai continuar,
+          mas o monitoramento de hardware da Jetson ficara indisponivel.
+      when:
+        - "'Jetsons' in group_names"
+        - remote_tegrastats_check.rc != 0

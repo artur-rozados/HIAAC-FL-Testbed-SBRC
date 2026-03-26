@@ -1,0 +1,190 @@
+---
+# Play 1: Setup venv nos clientes (Pis e Jetsons)
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  vars:
+    python_version_cmd: "{{ PYTHON_VERSION | default('python3.11') }}"
+    python_version_uv: "{{ python_version_cmd | regex_replace('^python', '') }}"
+
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Check uv binary on clients
+      ansible.builtin.stat:
+        path: "{{ path_remote_uv }}"
+      register: remote_uv_stat
+
+    - name: Fail when uv is missing on clients
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }}: uv nao encontrado em {{ path_remote_uv }}.
+          Rode ansible/build.yaml (bootstrap) para instalar dependencias minimas.
+      when: not remote_uv_stat.stat.exists
+
+    - name: Check requirements.txt on clients
+      ansible.builtin.stat:
+        path: "{{ path_remote_app_folder }}/requirements.txt"
+      register: remote_requirements_stat
+
+    - name: Fail when requirements.txt is missing on clients
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }}: requirements.txt nao encontrado em
+          {{ path_remote_app_folder }}/requirements.txt. Verifique o upload/copia de arquivos.
+      when: not remote_requirements_stat.stat.exists
+
+    - name: Ensure requested Python runtime is available via uv [Clients]
+      ansible.builtin.command:
+        cmd: "{{ path_remote_uv }} python install {{ python_version_uv }}"
+      changed_when: false
+      when: "'/' not in python_version_cmd"
+
+    - name: Create environment using uv [Clients]
+      ansible.builtin.command:
+        cmd: "{{ path_remote_uv }} venv {{ path_remote_venv }} --python {{ python_version_uv }}"
+      args:
+        creates: "{{ path_remote_venv }}/bin/activate"
+
+    - name: Calculate requirements hash on clients
+      ansible.builtin.command: "sha256sum {{ path_remote_app_folder }}/requirements.txt"
+      register: remote_requirements_sha
+      changed_when: false
+
+    - name: Check requirements marker on clients
+      ansible.builtin.stat:
+        path: "{{ path_remote_venv }}/.requirements.sha256"
+      register: remote_requirements_marker_stat
+
+    - name: Read requirements marker on clients
+      ansible.builtin.slurp:
+        path: "{{ path_remote_venv }}/.requirements.sha256"
+      register: remote_requirements_marker
+      when: remote_requirements_marker_stat.stat.exists
+
+    - name: Define installation need for clients
+      ansible.builtin.set_fact:
+        remote_requirements_hash: "{{ remote_requirements_sha.stdout.split()[0] }}"
+        remote_requirements_previous_hash: "{{ remote_requirements_marker.content | default('') | b64decode | trim }}"
+
+    - name: Report requirements already up to date on clients
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: requirements ja estao atualizados."
+      when: remote_requirements_hash == remote_requirements_previous_hash
+
+    - name: Install requirements [Clients] only when changed
+      ansible.builtin.command:
+        cmd: >-
+          {{ path_remote_uv }} pip install
+          --python {{ path_remote_venv }}/bin/python
+          -r {{ path_remote_app_folder }}/requirements.txt
+      when: remote_requirements_hash != remote_requirements_previous_hash
+      environment:
+        PATH: "{{ remote_dir.stdout }}/.local/bin:{{ ansible_env.PATH }}"
+        VIRTUAL_ENV: "{{ path_remote_venv }}"
+
+    - name: Update requirements marker on clients
+      ansible.builtin.copy:
+        dest: "{{ path_remote_venv }}/.requirements.sha256"
+        content: "{{ remote_requirements_hash }}\n"
+        mode: "0644"
+      when: remote_requirements_hash != remote_requirements_previous_hash
+
+    - name: Report requirements installation on clients
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: requirements instalados/atualizados na venv."
+      when: remote_requirements_hash != remote_requirements_previous_hash
+
+
+# Play 2: Setup venv no servidor principal (localhost)
+- hosts: localhost
+  connection: local
+  become: no
+  vars:
+    python_version_cmd: "{{ PYTHON_VERSION | default('python3.11') }}"
+    python_version_uv: "{{ python_version_cmd | regex_replace('^python', '') }}"
+
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Check uv binary on localhost
+      ansible.builtin.stat:
+        path: "{{ path_local_uv }}"
+      register: local_uv_stat
+
+    - name: Fail when uv is missing on localhost
+      ansible.builtin.fail:
+        msg: >-
+          localhost: uv nao encontrado em {{ path_local_uv }}.
+          Rode ansible/build.yaml (bootstrap) para instalar dependencias minimas.
+      when: not local_uv_stat.stat.exists
+
+    - name: Check requirements.txt on localhost
+      ansible.builtin.stat:
+        path: "{{ path_local_app_folder }}/requirements.txt"
+      register: local_requirements_stat
+
+    - name: Fail when requirements.txt is missing on localhost
+      ansible.builtin.fail:
+        msg: >-
+          localhost: requirements.txt nao encontrado em {{ path_local_app_folder }}/requirements.txt.
+          Verifique a copia de arquivos para o servidor local.
+      when: not local_requirements_stat.stat.exists
+
+    - name: Create environment using uv [Server]
+      ansible.builtin.command:
+        cmd: "{{ path_local_uv }} venv {{ path_local_venv }} --python {{ python_version_uv }}"
+      args:
+        creates: "{{ path_local_venv }}/bin/activate"
+
+    - name: Calculate requirements hash on localhost
+      ansible.builtin.command: "sha256sum {{ path_local_app_folder }}/requirements.txt"
+      register: local_requirements_sha
+      changed_when: false
+
+    - name: Check requirements marker on localhost
+      ansible.builtin.stat:
+        path: "{{ path_local_venv }}/.requirements.sha256"
+      register: local_requirements_marker_stat
+
+    - name: Read requirements marker on localhost
+      ansible.builtin.slurp:
+        path: "{{ path_local_venv }}/.requirements.sha256"
+      register: local_requirements_marker
+      when: local_requirements_marker_stat.stat.exists
+
+    - name: Define installation need for localhost
+      ansible.builtin.set_fact:
+        local_requirements_hash: "{{ local_requirements_sha.stdout.split()[0] }}"
+        local_requirements_previous_hash: "{{ local_requirements_marker.content | default('') | b64decode | trim }}"
+
+    - name: Report requirements already up to date on localhost
+      ansible.builtin.debug:
+        msg: "localhost: requirements ja estao atualizados."
+      when: local_requirements_hash == local_requirements_previous_hash
+
+    - name: Install requirements [Server] only when changed
+      ansible.builtin.command:
+        cmd: >-
+          {{ path_local_uv }} pip install
+          --python {{ path_local_venv }}/bin/python
+          -r {{ path_local_app_folder }}/requirements.txt
+      when: local_requirements_hash != local_requirements_previous_hash
+      environment:
+        PATH: "{{ local_dir.stdout }}/.local/bin:{{ ansible_env.PATH }}"
+        VIRTUAL_ENV: "{{ path_local_venv }}"
+
+    - name: Update requirements marker on localhost
+      ansible.builtin.copy:
+        dest: "{{ path_local_venv }}/.requirements.sha256"
+        content: "{{ local_requirements_hash }}\n"
+        mode: "0644"
+      when: local_requirements_hash != local_requirements_previous_hash
+
+    - name: Report requirements installation on localhost
+      ansible.builtin.debug:
+        msg: "localhost: requirements instalados/atualizados na venv."
+      when: local_requirements_hash != local_requirements_previous_hash

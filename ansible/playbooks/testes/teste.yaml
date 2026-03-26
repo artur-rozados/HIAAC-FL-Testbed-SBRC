@@ -1,0 +1,23 @@
+---
+- hosts:
+    - Raspberry_Pi
+    - Jetsons
+  become: yes # Essencial para replicar o ambiente que causa o problema original
+  vars_files:
+    - "{{ lookup('env', 'HOME') }}/ansible/HIAAC-FL-Testbed/vault.yml"
+
+  tasks:
+    - name: 1. VERIFICAÇÃO -> Mostrar o fato problemático original (ansible_user_dir)
+      debug:
+        msg: "O fato original 'ansible_user_dir' está retornando: {{ ansible_user_dir }}"
+
+    - name: 2. LÓGICA CORRIGIDA -> Usar 'shell' para buscar o home dir
+      # Usamos 'shell' para que o pipe '|' seja interpretado corretamente
+      shell: "getent passwd {{ ansible_user }} | cut -d: -f6"
+      register: user_home_dir_output
+      changed_when: false
+      become: no # Rodamos como o usuário 'pi' por segurança
+
+    - name: 3. RESULTADO -> Exibir o que foi capturado pelo nosso comando
+      debug:
+        msg: "O caminho do home directory capturado pelo nosso comando foi: '{{ user_home_dir_output.stdout }}'. Se este valor for '/home/pi', a lógica está correta."

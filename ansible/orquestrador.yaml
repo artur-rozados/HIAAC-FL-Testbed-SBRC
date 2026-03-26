@@ -1,0 +1,101 @@
+# RUN FULL EXPERIMENT
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+    - name: Exibir mensagem de início
+      ansible.builtin.debug:
+        msg: "================ INICIANDO CICLO DE EXPERIMENTO FULL STACK ================"
+
+
+
+
+#================ FASE 1: SETUP DOS NÓS E SERVIDOR ================
+
+- name: FASE 1.1 - Configurando o Servidor FL
+  ansible.builtin.import_playbook: playbooks/Flower/1_setup_SERVER.yaml
+
+
+- name: FASE 1.2 - Configurando os Nós do Testbed
+  ansible.builtin.import_playbook: playbooks/Flower/2_setup_nodes.yaml
+
+
+- name: FASE 1.3 - Atualizando Arquivos nos Nós
+  ansible.builtin.import_playbook: playbooks/Flower/3_update_files.yaml
+
+
+#- name: FASE 1.4 - Iniciando Captura de Tráfego na Pi-Router
+#  ansible.builtin.import_playbook: playbooks/router/start_capture.yaml
+
+
+
+
+
+#================ FASE 2: INICIANDO TREINAMENTO ================
+
+- name: FASE 2.1 - Iniciando o Servidor FL - server.py
+  ansible.builtin.import_playbook: playbooks/Flower/4_start_server.yaml
+
+
+
+- name: FASE 2.2 - Esperar o servidor estar pronto na porta 8080
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Aguardando o servidor Flower (porta 8080) ficar online
+      ansible.builtin.wait_for:
+        host: 127.0.0.1   # Mais seguro checar no localhost
+        port: 8080        # Porta padrão do Flower
+        delay: 5          # Espera 5 segundos antes de checar
+        timeout: 60       # Falha se o server não subir em 1 minuto
+      
+
+
+- name: FASE 2.3 - Iniciando os Clientes Flower - client.py
+  ansible.builtin.import_playbook: playbooks/Flower/5_start_clients.yaml
+
+
+
+
+
+#================ FASE 3: ESPERANDO O TREINAMENTO ================
+
+- name: FASE 3.1 - Esperar o experimento (servidor) terminar
+  ansible.builtin.import_playbook: playbooks/Flower/6_pooling.yaml
+
+
+
+
+
+#================ FASE 4: TERMINANDO O TREINAMENTO ================
+
+- name: Continuar
+  hosts: localhost
+  tasks:
+
+
+
+## --- FASE 3: COLETA DE DADOS ---
+- name: FASE 4.1 - Finalizando Captura e Coletando Dados
+  ansible.builtin.import_playbook: playbooks/Flower/7_stop_server.yaml
+
+
+- name: Continuar
+  hosts: localhost
+  tasks:
+
+    - name: FASE 4.2 - Limpar arquivo de PID do servidor
+      ansible.builtin.file:
+        path: "{{ server_pid_file }}"
+        state: absent
+
+    - name: Exibir mensagem de conclusão
+      ansible.builtin.debug:
+        msg:
+          - "================ CICLO DE EXPERIMENTO CONCLUÍDO COM SUCESSO! ================"
+          - "O arquivo de captura está em: {{ testbed_dir }}/captures/"

@@ -1,0 +1,23 @@
+# =======================================================
+#  vault.yml.example — template para criar o vault real
+#
+#  Copie para ansible/group_vars/all/vault.yml e edite
+#  com as credenciais reais dos seus dispositivos.
+#  Em seguida, criptografe com ansible-vault:
+#
+#    ansible-vault encrypt ansible/group_vars/all/vault.yml
+#
+#  O arquivo vault.yml real nunca deve ser commitado.
+# =======================================================
+
+pi_sudo_password: "senha-sudo-dos-pis"
+
+jetson_passwords:
+  jetson: "senha-jetson1"
+  jetson2: "senha-jetson2"
+  jetson3: "senha-jetson3"
+  jetson4: "senha-jetson4"
+  jetson5: "senha-jetson5"
+  jetson6: "senha-jetson6"
+
+pi_router_password: "senha-do-roteador"

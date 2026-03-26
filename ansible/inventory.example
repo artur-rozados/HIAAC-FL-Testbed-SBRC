@@ -1,0 +1,43 @@
+# =======================================================
+#  inventory.example — copie para "ansible/inventory"
+#  e substitua os IPs/usuários pela sua infraestrutura.
+#  Não commite o arquivo "inventory" real.
+# =======================================================
+
+# =======================================================
+#          Definição de Variáveis para cada Grupo
+# =======================================================
+
+[Raspberry_Pi:vars]
+ansible_user=pi
+ansible_become_pass="{{ pi_sudo_password }}"
+
+[Jetsons:vars]
+ansible_user="{{ inventory_hostname }}"
+ansible_ssh_pass="{{ jetson_passwords[inventory_hostname] }}"
+ansible_become_pass="{{ jetson_passwords[inventory_hostname] }}"
+
+[Pi_router:vars]
+ansible_user=root
+ansible_become_pass="{{ pi_router_password }}"
+
+
+# =======================================================
+#               Lista de Hosts em cada Grupo
+# =======================================================
+
+[Raspberry_Pi]
+# Substitua pelos IPs reais dos seus Raspberry Pis
+192.168.1.101
+192.168.1.102
+192.168.1.103
+
+[Jetsons]
+# Formato: NOME  ansible_host=IP
+# Substitua pelos IPs reais das suas Jetsons
+jetson   ansible_host=192.168.1.201
+jetson2  ansible_host=192.168.1.202
+
+[Pi_router]
+# IP do roteador (se houver)
+192.168.1.1

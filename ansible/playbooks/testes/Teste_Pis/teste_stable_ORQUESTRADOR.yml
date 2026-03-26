@@ -1,0 +1,22 @@
+---
+- hosts: Raspberry_Pi
+  become: yes
+  tasks:
+    - name: Exibir mensagem de início
+      ansible.builtin.debug:
+        msg: "================ INICIANDO CICLO DE TESTES DAS PIS ================"
+
+
+#================ TESTES ================
+
+
+- name: Criando/atualizando script de testes
+  ansible.builtin.import_playbook: teste_stable_files.yml
+
+- name: Executando testes
+  ansible.builtin.import_playbook: teste_stable_exe.yml
+
+
+#================ FIM ================
+# Testes rodam indefinidamente em background
+# Para parar, use: teste_stable_parar.yml

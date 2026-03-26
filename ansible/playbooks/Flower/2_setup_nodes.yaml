@@ -1,0 +1,105 @@
+---
+- hosts:
+    - Raspberry_Pi
+    - Jetsons
+  become: yes
+#  vars_files:
+#    - "{{ lookup('env', 'HOME') }}/HIAAC-FL-Testbed/ansible/vault.yml"
+
+  tasks:
+    # --- ETAPA 1: Lógica para descobrir dinamicamente o usuário, home e GRUPO ---
+    - name: Descobrir o home directory real do usuário de conexão
+      shell: "getent passwd {{ ansible_user }} | cut -d: -f6" # pega usuário
+      register: user_home_dir_output
+      changed_when: false
+      become: no
+
+    - name: Descobrir o grupo primário real do usuário de conexão
+      shell: "id -gn {{ ansible_user }}" # pega grupo
+      register: user_group_output
+      changed_when: false
+      become: no
+
+    - name: Definir variáveis de fato com os caminhos e grupos corretos
+      set_fact:
+        correct_user_home: "{{ user_home_dir_output.stdout }}"
+        correct_user_group: "{{ user_group_output.stdout }}"
+        uv_full_path: "{{ user_home_dir_output.stdout }}/.local/bin/uv" 
+
+    # --- ETAPA 2: Instalar uv e criar/configurar venv ---
+    - name: Garantir dependências do sistema para instalar UV
+      apt:
+        name:
+          - curl
+          # --- MUDANÇA ESSENCIAL 1: Remover dependência do módulo pip ---
+          # - python3-packaging # Não é mais necessário para a chamada direta do uv
+        state: present
+        update_cache: yes
+      # Usa become: yes global
+
+    - name: Instalar uv
+      ansible.builtin.shell:
+        cmd: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+      args:
+        creates: "{{ uv_full_path }}"
+      become: no
+
+    - name: Criar o diretório para os ambientes virtuais
+      file:
+        path: "{{ correct_user_home }}/FilesTestbed/venvs"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ correct_user_group }}" 
+        mode: '0755'
+      # Usa become: yes global
+
+    - name: Criar o ambiente virtual 'myenv'
+      command:
+        cmd: "{{ uv_full_path }} venv --python 3.11 {{ correct_user_home }}/FilesTestbed/venvs/myenv"
+        creates: "{{ correct_user_home }}/FilesTestbed/venvs/myenv/bin/activate"
+      become: no
+
+    - name: Garantir que o usuário de conexão seja o dono do diretório do venv
+      file:
+        path: "{{ correct_user_home }}/FilesTestbed/venvs/myenv"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ correct_user_group }}"
+        recurse: yes
+      # Usa become: yes global
+
+    # --- ETAPA 3: Copiar requirements e instalar com uv ---
+
+    #    - name: Copiar o arquivo client.py para os Pis # 
+    # --- MUDANÇA ESSENCIAL 2: Garantir que requirements.txt exista no host remoto ---
+    - name: Criar diretório FilesTestbed se não existir (garante dono certo)
+      file:
+        path: "{{ correct_user_home }}/FilesTestbed"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ correct_user_group }}"
+        mode: '0755'
+      become: yes 
+
+    - name: Copiar o arquivo requirements.txt para os hosts remotos
+      copy:
+        src: "{{ lookup('env', 'HOME') }}/TESTBED/requirements.txt" # Confirme se este é o caminho local correto
+        dest: "{{ correct_user_home }}/FilesTestbed/requirements.txt"
+        owner: "{{ ansible_user }}"
+        group: "{{ correct_user_group }}"
+        mode: '0644'
+      become: no 
+
+    #    - name: Instalar requirements (tarefa de longa duração) # Comentário original da tarefa pip
+    # --- MUDANÇA ESSENCIAL 3: Substituir módulo pip por chamada direta ao uv ---
+    - name: Instalar requirements com uv (tarefa de longa duração)
+      command:
+        # Chama uv, aponta para o python do venv e para o arquivo requirements
+        cmd: >
+          {{ uv_full_path }} pip install
+          --python {{ correct_user_home }}/FilesTestbed/venvs/myenv/bin/python
+          -r {{ correct_user_home }}/FilesTestbed/requirements.txt
+        chdir: "{{ correct_user_home }}/FilesTestbed"
+      become: no # Executa como usuário
+      async: 1800
+      poll: 15

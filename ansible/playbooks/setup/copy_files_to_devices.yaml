@@ -1,0 +1,50 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Copy client.py to devices
+      ansible.builtin.copy:
+        src: "{{ path_files_to_copy }}/"
+        dest: "{{ path_remote_app_folder }}/"
+
+    - name: Copy monitoring script to Raspberry Pi
+      ansible.builtin.copy:
+        src: "{{ path_monitoring_scripts }}/monitor_pi.sh"
+        dest: "{{ path_remote_app_folder }}/monitor.sh"
+        mode: '0755'
+      when: "'Raspberry_Pi' in group_names"
+
+    - name: Copy monitoring script to Jetson
+      ansible.builtin.copy:
+        src: "{{ path_monitoring_scripts }}/monitor_jetson.sh"
+        dest: "{{ path_remote_app_folder }}/monitor.sh"
+        mode: '0755'
+      when: "'Jetsons' in group_names"
+
+    - name: Copy monitoring wrapper to all devices
+      ansible.builtin.copy:
+        src: "{{ path_monitoring_scripts }}/run_client_with_monitoring.py"
+        dest: "{{ path_remote_app_folder }}/run_client_with_monitoring.py"
+        mode: '0755'
+
+    # - name: Copy requirements.txt to devices
+    #   ansible.builtin.copy:
+    #     src: "{{ path_files_to_copy }}/requirements.txt"
+    #     dest: "{{ path_remote_app_folder }}/requirements.txt"
+
+    - name: Copy files to local folder (usando copy)
+      ansible.builtin.copy:
+        src: "{{ path_files_to_copy }}/" 
+        dest: "{{ path_local_app_folder }}/"
+      delegate_to: localhost
+      run_once: true
+    # - name: Copy requirements.txt to server
+    #   ansible.builtin.command: "cp {{ path_files_to_copy }}/requirements.txt {{path_local_app_folder}}/requirements.txt"
+    #   delegate_to: localhost
+    #   changed_when: true

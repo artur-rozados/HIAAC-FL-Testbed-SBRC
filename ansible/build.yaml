@@ -1,0 +1,9 @@
+---
+- name: Bootstrap dependencies on clients
+  ansible.builtin.import_playbook: playbooks/setup/bootstrap_environment.yaml
+
+- name: Copying stage
+  ansible.builtin.import_playbook: playbooks/setup/copy_files_to_devices.yaml
+
+- name: Creating .venvs
+  ansible.builtin.import_playbook: playbooks/setup/create_env_on_devices.yaml

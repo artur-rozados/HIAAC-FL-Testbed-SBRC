@@ -1,0 +1,69 @@
+---
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Resolve remote home directory for ansible_user
+      ansible.builtin.command: "getent passwd {{ ansible_user }}"
+      register: remote_passwd_entry
+      changed_when: false
+
+    - name: Set remote user home fact
+      ansible.builtin.set_fact:
+        remote_user_home: "{{ remote_passwd_entry.stdout.split(':')[5] }}"
+
+    - name: Ensure curl is installed
+      ansible.builtin.apt:
+        name: curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      become: true
+
+    - name: Ensure python3 is installed
+      ansible.builtin.apt:
+        name: python3
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      become: true
+
+    - name: Ensure python3-venv is installed
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      become: true
+
+    - name: Ensure python3-pip is installed
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      become: true
+
+    - name: Check uv binary on remote host
+      ansible.builtin.stat:
+        path: "{{ remote_user_home }}/.local/bin/uv"
+      register: remote_uv_stat
+
+    - name: Report uv already installed on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: uv ja esta instalado em {{ remote_user_home }}/.local/bin/uv."
+      when: remote_uv_stat.stat.exists
+
+    - name: Install uv when missing
+      ansible.builtin.shell:
+        cmd: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        creates: "{{ remote_user_home }}/.local/bin/uv"
+      when: not remote_uv_stat.stat.exists
+
+    - name: Report uv installation on remote host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: uv instalado em {{ remote_user_home }}/.local/bin/uv."
+      when: not remote_uv_stat.stat.exists

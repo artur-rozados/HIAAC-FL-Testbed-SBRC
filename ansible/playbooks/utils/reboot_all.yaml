@@ -1,0 +1,10 @@
+---
+- name: Reboot all devices
+  hosts: Raspberry_Pi,Jetsons
+  gather_facts: no
+  tasks:
+    - name: Reboot device
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible"
+        reboot_timeout: 300
+      become: yes

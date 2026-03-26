@@ -1,0 +1,24 @@
+---
+# Limpa TODOS os logs antigos antes de um novo experimento
+- hosts:
+  - Raspberry_Pi
+  - Jetsons
+  become: no
+  
+  tasks:
+    - name: Include dir variables
+      ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Remover pasta de logs antiga completamente
+      ansible.builtin.file:
+        path: "{{ path_remote_app_folder }}/logs"
+        state: absent
+
+    - name: Recriar pasta de logs limpa
+      ansible.builtin.file:
+        path: "{{ path_remote_app_folder }}/logs"
+        state: directory
+
+    - name: Confirmar limpeza
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: Logs limpos, pronto para novo experimento"
