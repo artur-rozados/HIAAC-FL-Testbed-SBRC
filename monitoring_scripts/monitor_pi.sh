@@ -5,6 +5,9 @@ mkdir -p "$OUTPUT_DIR"
 METRICS_FILE="$OUTPUT_DIR/hardware_metrics.csv"
 INTERVAL=${1:-1}
 
+# Keep command output and numeric formatting locale-independent for comma-separated CSV.
+export LC_ALL=C
+
 if [ ! -f "$METRICS_FILE" ]; then
     echo "timestamp,cpu_temp_C,core_voltage_V,cpu_load_1min,cpu_load_5min,cpu_load_15min,mem_total_MB,mem_used_MB,mem_free_MB,mem_available_MB,mem_usage_percent" > "$METRICS_FILE"
 fi
