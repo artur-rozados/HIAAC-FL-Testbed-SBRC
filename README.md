@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Telemetria-tcpdump-red" alt="Telemetria">
 </p>
 
-Testbed para experimentos de **Aprendizagem Federada (FL)** em hardware heterogêneo real. Orquestra automaticamente um cluster de mini-computadores (Raspberry Pi e NVIDIA Jetson) via Ansible, com interface gráfica Streamlit e monitoramento de hardware em tempo real.
+Testbed para experimentos de **Aprendizagem Federada (FL)** em hardware heterogêneo. Orquestra automaticamente um cluster de mini-computadores (Raspberry Pi e NVIDIA Jetson) via Ansible, com interface gráfica Streamlit e monitoramento de hardware.
 
 ---
 
