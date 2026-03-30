@@ -6,6 +6,9 @@ METRICS_FILE="$OUTPUT_DIR/hardware_metrics.csv"
 TEGRASTATS_RAW="$OUTPUT_DIR/tegrastats_raw.log"
 INTERVAL_MS=${1:-1000}
 
+# Keep command output and numeric formatting locale-independent for comma-separated CSV.
+export LC_ALL=C
+
 if [ ! -f "$METRICS_FILE" ]; then
     echo "timestamp,cpu_usage_percent,mem_used_MB,mem_total_MB,mem_usage_percent,gpu_usage_percent,temp_CPU_C,temp_GPU_C,temp_thermal_C,power_mW" > "$METRICS_FILE"
 fi
