@@ -579,30 +579,84 @@ def render_charts_tab() -> None:
     if hw_frames:
         st.markdown("#### 🖥️ Hardware (por cliente)")
         hw_df = pd.concat(hw_frames, ignore_index=True)
+        if "timestamp" not in hw_df.columns:
+            st.warning("Coluna 'timestamp' não encontrada nos dados de hardware.")
+            return
+
         hw_df["timestamp"] = pd.to_datetime(hw_df["timestamp"], errors="coerce")
         hw_df = hw_df.dropna(subset=["timestamp"])
 
+        if hw_df.empty:
+            st.warning("Nenhum dado de hardware válido encontrado.")
+            return
+
+        # Normaliza colunas numéricas para evitar falhas quando CSV chega como texto.
+        numeric_cols = [
+            "cpu_temp_C",
+            "core_voltage_V",
+            "cpu_load_1min",
+            "mem_usage_percent",
+            "mem_used_MB",
+            "cpu_usage_percent",
+            "power_mW",
+        ]
+        for col in numeric_cols:
+            if col in hw_df.columns:
+                hw_df[col] = pd.to_numeric(hw_df[col], errors="coerce")
+
+        # Distingue clientes Raspberry Pi e Jetson pelo nome da pasta do cliente.
+        hw_df["client_kind"] = hw_df["client"].astype(str).str.lower().apply(
+            lambda name: "jetson" if "jetson" in name else "pi"
+        )
+
+        st.caption("Nos logs atuais, Raspberry Pi não envia CPU em %; envia CPU Load (1/5/15 min).")
+
         metric_options = {
-            "Temperatura CPU (°C)": "cpu_temp_C",
-            "Uso de Memória (%)": "mem_usage_percent",
-            "CPU Load 1min": "cpu_load_1min",
+            "Temperatura CPU (°C) - Pis": ("cpu_temp_C", "pi"),
+            "Uso de Memória (%)": ("mem_usage_percent", None),
+            "Uso de Memória (MB)": ("mem_used_MB", None),
+            "Tensão de Core (V) - Pis": ("core_voltage_V", "pi"),
+            "CPU Load 1min - Pis": ("cpu_load_1min", "pi"),
+            "CPU (% uso) - Jetsons": ("cpu_usage_percent", "jetson"),
+            "Energia/Potência (mW) - Jetsons": ("power_mW", "jetson"),
         }
         selected = st.multiselect(
             "Métricas de hardware",
             list(metric_options.keys()),
-            default=["Temperatura CPU (°C)", "Uso de Memória (%)"],
+            default=list(metric_options.keys()),
         )
 
         for label in selected:
-            col = metric_options[label]
+            col, client_scope = metric_options[label]
             if col not in hw_df.columns:
+                st.warning(f"Coluna '{col}' não encontrada nos dados.")
                 continue
+
+            scoped_df = hw_df
+            if client_scope is not None:
+                scoped_df = hw_df[hw_df["client_kind"] == client_scope]
+
+            if scoped_df.empty:
+                st.info(f"Sem dados para '{label}' no grupo selecionado.")
+                continue
+
             fig = go.Figure()
-            for client, grp in hw_df.groupby("client"):
+            plotted = 0
+            for client, grp in scoped_df.groupby("client"):
+                data = grp[["timestamp", col]].dropna().sort_values("timestamp")
+                if data.empty:
+                    continue
                 fig.add_trace(go.Scatter(
-                    x=grp["timestamp"], y=grp[col],
+                    x=data["timestamp"], y=data[col],
                     mode="lines", name=client,
                 ))
+
+                plotted += 1
+
+            if plotted == 0:
+                st.info(f"Sem amostras válidas para '{label}'.")
+                continue
+
             fig.update_layout(title=label, xaxis_title="Tempo",
                               yaxis_title=label, height=300, margin=dict(t=40, b=20))
             st.plotly_chart(fig, width="stretch")
