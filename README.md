@@ -24,7 +24,7 @@ Este README está organizado nas seguintes partes:
 6. Instalação completa em ambiente limpo.
 7. Teste mínimo para validação rápida.
 8. Passo a passo dos experimentos e reivindicações.
-9. Licença.ws
+9. Licença.
 
 Estrutura principal do repositório:
 
@@ -77,7 +77,7 @@ Os selos considerados para avaliação deste artefato são:
 
 O testbed é composto por três tipos de nós em rede isolada:
 
-| Nó | Escala | Papel |
+| Nó | Quantidade | Papel |
 |----|--------|-------|
 | **Servidor central** | 1 | Hospeda a GUI Streamlit, roda o servidor Flower e agrega logs |
 | **Raspberry Pi** | Variável | Clientes FL com treinamento local no dispositivo |
@@ -178,14 +178,15 @@ Arquivo de referência: `files_to_copy/requirements.txt`.
 
 - Flower: comunicação e estratégia federada.
 - flwr_datasets: carga de datasets (pode exigir acesso à internet no primeiro download, dependendo do dataset usado).
+- Ansible: execução em nós remotos em escala.
 
 # Preocupações com segurança
 
 1. O `run.sh` usa `sudo tcpdump` e `sudo pkill`; configure sudo sem senha apenas para esses binários e somente na máquina de orquestração.
 2. O inventário e o vault contêm dados sensíveis (IPs, usuários e senhas). Não publique `ansible/inventory` nem `ansible/group_vars/all/vault.yml` sem anonimização.
 3. Em ambiente público, use rede isolada para os dispositivos e restrinja acesso SSH por firewall/lista de IPs.
-4. A demonstração remota via proxy (`http://143.106.73.34/`) exige credenciais privadas, que não são publicadas neste repositório. Caso o avaliador não tenha acesso, deve contatar os autores.
-5. Recursos específicos/restritos (credenciais da proxy, detalhes de acesso remoto e qualquer material sensível) devem ser enviados no apêndice da submissão, conforme instruções do CTA.
+4. A demonstração remota via proxy (`http://143.106.73.34/`) exige credenciais privadas, que estão no apêndice submetido.
+5. Recursos específicos/restritos (credenciais da proxy, detalhes de acesso remoto e qualquer material sensível) estão descritos no apêndice da submissão, conforme instruções.
 
 # Instalação
 
@@ -433,7 +434,6 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 - Gráficos renderizados sem erro para os logs disponíveis.
 - Download dos artefatos de logs funcionando.
 
-> Caso a reprodução completa não seja viável no tempo da avaliação, recomenda-se reproduzir ao menos as reivindicações #1 e #2, que cobrem o ciclo principal de execução e análise apresentado no artigo.
 
 # LICENSE
 
