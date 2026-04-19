@@ -336,7 +336,7 @@ Boas práticas:
 
 # Teste mínimo
 
-Esta seção valida se o artefato está funcional com o menor esforço possível para o revisor.
+Esta seção valida se o artefato está funcional para o revisor.
 
 ## Caminho A: validação local
 
@@ -352,6 +352,7 @@ uv run streamlit run streamlit_app.py
 4. Faça upload de um modelo de exemplo (`MODELOS_exemplos/Modelos/*.zip`).
 5. Execute o deploy na aba Operações.
 6. Execute o `run.sh` e aguarde o término.
+   > **Nota:** Durante o deploy (passo 5) ou na execução (passo 6), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline ou alocados para outras tarefas no laboratório. O experimento é resiliente, ignora os nós inativos e é concluído com sucesso com os dispositivos disponíveis. Basta ignorar o aviso e verificar os logs gerados.
 7. Valide na aba Logs se os pacotes são gerados e na aba Gráficos se há dados carregados.
 
 ## Caminho B: validação via proxy do laboratório
@@ -386,6 +387,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 3. Fazer upload do modelo.
 4. Executar deploy na aba Operações.
 5. Executar `run.sh`.
+   > **Nota:** Durante o deploy (passo 4) ou na execução (passo 5), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline ou alocados para outras tarefas no laboratório. O experimento é resiliente, ignora os nós inativos e é concluído com sucesso com os dispositivos disponíveis. Basta ignorar o aviso e verificar os logs gerados.
 6. Aguardar finalização do servidor Flower.
 7. Confirmar logs em `~/app/logs/`.
 
