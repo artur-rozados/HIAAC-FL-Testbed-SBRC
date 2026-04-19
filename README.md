@@ -433,7 +433,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 - Gráficos renderizados sem erro para os logs disponíveis.
 - Download dos artefatos de logs funcionando.
 
-> Caso a reprodução completa não seja viável no tempo da avaliação, recomenda-se reproduzir ao menos as reivindicações #X e #Y, que cobrem o ciclo principal de execução e análise apresentado no artigo.
+> Caso a reprodução completa não seja viável no tempo da avaliação, recomenda-se reproduzir ao menos as reivindicações #1 e #2, que cobrem o ciclo principal de execução e análise apresentado no artigo.
 
 # LICENSE
 
