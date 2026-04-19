@@ -368,7 +368,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 
 ## Reivindicações #1
 
-**Reivindicação:** execução fim-a-fim de FL com coleta de logs de treino, avaliação, hardware e tráfego de rede.
+**Reivindicação:** execução fim a fim de FL com coleta de logs de treino, avaliação, hardware e tráfego de rede.
 
 ### Arquivos de configuração relevantes
 
@@ -414,7 +414,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 
 ### Passo a passo
 
-1. Garantir que a Reivindicação #X foi concluída e os logs foram coletados.
+1. Garantir que a Reivindicação #1 foi concluída e os logs foram coletados.
 2. Abrir a aba Gráficos na GUI.
 3. Validar curvas de treino e avaliação por round.
 4. Validar gráficos de hardware por cliente (memória, temperatura, tensão e métricas disponíveis).
