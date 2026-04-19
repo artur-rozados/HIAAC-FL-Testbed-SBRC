@@ -1,6 +1,8 @@
-# HIAAC-FL-Testbed
+# FL-H.IAAC
 
+**FL-H.IAAC** é um testbed para experimentos de Aprendizagem Federada (FL) em hardware heterogêneo real, com orquestração via Ansible, interface Streamlit para operação e monitoramento contínuo de métricas de hardware e logs de execução.
 
+Este artefato acompanha o artigo submetido ao SBRC e tem como objetivo permitir a execução e avaliação de experimentos federados em um ambiente de laboratório com dispositivos reais, mantendo um fluxo reproduzível de deploy, execução, coleta e análise de resultados.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Ansible-EE0000?logo=ansible&logoColor=white" alt="Ansible">
@@ -10,19 +12,76 @@
   <img src="https://img.shields.io/badge/Telemetria-tcpdump-red" alt="Telemetria">
 </p>
 
-Testbed para experimentos de **Aprendizagem Federada (FL)** em hardware heterogêneo. Orquestra automaticamente um cluster de mini-computadores (Raspberry Pi e NVIDIA Jetson) via Ansible, com interface gráfica Streamlit e monitoramento de hardware.
+# Estrutura do readme.md
 
----
+Este README está organizado nas seguintes partes:
 
-## Arquitetura do Ambiente
+1. Título e objetivo do artefato.
+2. Selos solicitados para avaliação.
+3. Informações básicas do ambiente e da arquitetura.
+4. Dependências e requisitos externos.
+5. Preocupações com segurança e restrições de acesso.
+6. Instalação completa em ambiente limpo.
+7. Teste mínimo para validação rápida.
+8. Passo a passo dos experimentos e reivindicações.
+9. Licença.ws
+
+Estrutura principal do repositório:
+
+```
+HIAAC-FL-Testbed-SBRC/
+├── ansible/
+│   ├── build.yaml
+│   ├── inventory
+│   ├── inventory.example            # template de inventário
+│   ├── orquestrador.yaml
+│   ├── group_vars/                  # variáveis por grupo (credenciais via vault)
+│   └── playbooks/
+│       ├── after_run/               # copy_to_server.yaml
+│       ├── deploy/                  # start_server.yaml, start_clients.yaml
+│       ├── Flower/
+│       ├── pi_jetsons/
+│       ├── router/
+│       ├── setup/                   # bootstrap, copy_files, create_env
+│       ├── Templates/
+│       ├── stop/                    # stop_flower_clients.yaml
+│       ├── testes/
+│       └── utils/
+├── monitoring_scripts/
+│   ├── monitor_pi.sh                # coleta métricas nos Raspberry Pis
+│   ├── monitor_jetson.sh            # coleta métricas nos Jetsons (tegrastats)
+│   └── run_client_with_monitoring.py
+├── MODELOS_exemplos/
+│   └── Modelos/                     # light, medium e heavy (zip + código fonte)
+├── files_to_copy/                   # arquivos do modelo enviados aos dispositivos
+│   └── logs/
+├── streamlit_app.py                 # interface gráfica principal
+├── requirements.txt                 # dependências da interface
+├── run.sh                           # script de execução do experimento
+├── force_stop.sh                    # para todos os processos imediatamente
+└── LICENSE
+```
+
+# Selos Considerados
+
+Os selos considerados para avaliação deste artefato são:
+
+- **Artefatos Disponíveis (SeloD)**
+- **Artefatos Funcionais (SeloF)**
+- **Artefatos Sustentáveis (SeloS)**
+- **Experimentos Reprodutíveis (SeloR)**
+
+# Informações básicas
+
+## Arquitetura do ambiente
 
 O testbed é composto por três tipos de nós em rede isolada:
 
 | Nó | Escala | Papel |
 |----|--------|-------|
 | **Servidor central** | 1 | Hospeda a GUI Streamlit, roda o servidor Flower e agrega logs |
-| **Raspberry Pi** | Variável | Clientes FL — treinamento local com CPU ARM |
-| **NVIDIA Jetson** | Variável | Clientes FL — treinamento com GPU integrada |
+| **Raspberry Pi** | Variável | Clientes FL com treinamento local no dispositivo |
+| **NVIDIA Jetson** | Variável | Clientes FL com treinamento local no dispositivo |
 
 > **O servidor precisa ter o IP fixo `10.10.30.123`**, pois os clientes usam esse endereço para se conectar ao servidor Flower (porta 8080).
 
@@ -30,9 +89,7 @@ A comunicação entre servidor e clientes durante o treinamento usa o framework 
 
 Para usar o testbed com sua própria infraestrutura, copie `ansible/inventory.example` para `ansible/inventory` e edite com seus IPs e credenciais.
 
----
-
-## Execução de Experimentos (testbed físico)
+## Fluxo geral de operação
 
 A execução é feita pela interface Streamlit, que centraliza o ciclo de vida completo de um experimento — do upload do modelo até o download dos resultados.
 
@@ -71,9 +128,7 @@ Há três modelos de exemplo prontos em `MODELOS_exemplos/Modelos/`, em variante
 
 **4. Resultados** — Na aba *Logs*, baixe os CSVs de métricas ou o pacote completo com o `.pcap`. Na aba *Gráficos*, visualize accuracy, loss e métricas de hardware interativamente.
 
----
-
-## Monitoramento de Hardware
+## Monitoramento de hardware
 
 Durante o experimento, cada dispositivo coleta métricas de hardware em paralelo com o treinamento. O `run_client_with_monitoring.py` inicia o script de monitoramento adequado para cada arquitetura (`monitor_pi.sh` nos Raspberry Pis via `vcgencmd`, `monitor_jetson.sh` nos Jetsons via `tegrastats`) em um grupo de processos separado, de forma que o encerramento do cliente garante o encerramento do monitor.
 
@@ -84,16 +139,55 @@ app/logs/
 ├── client-<IP>/
 │   ├── train.csv             # rodada, cid, acurácia e loss do treino
 │   ├── evaluate.csv          # rodada, cid, acurácia e loss da avaliação
-│   └── metrics/              # CPU, memória e temperatura (1 amostra/segundo)
+│   ├── hardware_metrics.csv  # métricas de hardware coletadas no cliente
+│   └── tegrastats_raw.log    # disponível nos clientes Jetson
 ├── client-<jetson-hostname>/
 │   └── ...
 └── pcaps/
     └── HH:MM:DD-MM-YYYY.pcap
 ```
 
----
+# Dependências
 
-## Configuração do Ambiente
+## Dependências da interface (servidor local)
+
+- Python 3.11+
+- streamlit
+- pandas
+- plotly
+
+Arquivo de referência: `requirements.txt`.
+
+## Dependências do modelo/execução federada (clientes e servidor FL)
+
+- flwr==1.9.0
+- flwr[simulation]
+- tensorflow
+- flwr_datasets
+
+Arquivo de referência: `files_to_copy/requirements.txt`.
+
+## Dependências de infraestrutura
+
+- Ansible 2.15+
+- uv
+- tcpdump
+- SSH funcional entre servidor e dispositivos
+
+## Recursos de terceiros
+
+- Flower: comunicação e estratégia federada.
+- flwr_datasets: carga de datasets (pode exigir acesso à internet no primeiro download, dependendo do dataset usado).
+
+# Preocupações com segurança
+
+1. O `run.sh` usa `sudo tcpdump` e `sudo pkill`; configure sudo sem senha apenas para esses binários e somente na máquina de orquestração.
+2. O inventário e o vault contêm dados sensíveis (IPs, usuários e senhas). Não publique `ansible/inventory` nem `ansible/group_vars/all/vault.yml` sem anonimização.
+3. Em ambiente público, use rede isolada para os dispositivos e restrinja acesso SSH por firewall/lista de IPs.
+4. A demonstração remota via proxy (`http://143.106.73.34/`) exige credenciais privadas, que não são publicadas neste repositório. Caso o avaliador não tenha acesso, deve contatar os autores.
+5. Recursos específicos/restritos (credenciais da proxy, detalhes de acesso remoto e qualquer material sensível) devem ser enviados no apêndice da submissão, conforme instruções do CTA.
+
+# Instalação
 
 ### Pré-requisitos (na máquina / computador / servidor)
 
@@ -196,7 +290,7 @@ O `ansible/build.yaml` executa um bootstrap idempotente antes do copy/venv. Em P
 
 ### 7. Autorizar `tcpdump` sem senha de sudo
 
-**Execute isto na sua máquina** (o servidor que vai orquestrar os experimentos). O `run.sh` chama `sudo tcpdump` e `sudo pkill` para capturar e encerrar a captura de rede — sem essa configuração, o script trava esperando senha:
+Execute isto na sua máquina (o servidor que vai orquestrar os experimentos). O `run.sh` chama `sudo tcpdump` e `sudo pkill` para capturar e encerrar a captura de rede — sem essa configuração, o script pode travar esperando senha:
 
 ```bash
 # Remove qualquer regra anterior (evita erro se houver arquivo inválido de tentativa anterior)
@@ -222,7 +316,7 @@ sudo visudo -c -f /etc/sudoers.d/testbed-tcpdump
 ```bash
 cd ~/HIAAC-FL-Testbed-SBRC
 uv run streamlit run streamlit_app.py
-# Acesse: http://localhost:8501
+# Acesse: http://localhost:8501 (ou outro IP que seja gerado)
 ```
 
 ### 9. Ajustar dispositivos monitorados na GUI
@@ -239,27 +333,108 @@ Boas práticas:
 - use nomes curtos e estáveis (ex.: `Raspberry Pi A`, `Jetson A`)
 - em repositório público, evite subir IPs reais da sua rede privada
 
----
+# Teste mínimo
 
-## Estrutura do Repositório
+Esta seção valida se o artefato está funcional com o menor esforço possível para o revisor.
 
+## Caminho A: validação local
+
+1. Conclua a seção de instalação.
+2. Suba a GUI:
+
+```bash
+cd ~/HIAAC-FL-Testbed-SBRC
+uv run streamlit run streamlit_app.py
 ```
-HIAAC-FL-Testbed-SBRC/
-├── ansible/
-│   ├── inventory.example            # template de inventário (copie e edite)
-│   ├── group_vars/                  # variáveis por grupo (credenciais via vault)
-│   └── playbooks/
-│       ├── deploy/                  # start_server.yaml, start_clients.yaml
-│       ├── setup/                   # bootstrap, copy_files, create_env
-│       ├── after_run/               # copy_to_server.yaml
-│       └── stop/                    # stop_flower_clients.yaml
-├── monitoring_scripts/
-│   ├── monitor_pi.sh                # coleta métricas nos Raspberry Pis
-│   ├── monitor_jetson.sh            # coleta métricas nos Jetsons (tegrastats)
-│   └── run_client_with_monitoring.py
-├── MODELOS_exemplos/
-│   └── Modelos/                     # light, medium e heavy (zip + código fonte)
-├── streamlit_app.py                 # interface gráfica principal
-├── run.sh                           # script de execução do experimento
-└── force_stop.sh                    # para todos os processos imediatamente
-```
+
+3. Verifique se as abas principais aparecem: Arquivos, Operações, Logs e Gráficos.
+4. Faça upload de um modelo de exemplo (`MODELOS_exemplos/Modelos/*.zip`).
+5. Execute o deploy na aba Operações.
+6. Execute o `run.sh` e aguarde o término.
+7. Valide na aba Logs se os pacotes são gerados e na aba Gráficos se há dados carregados.
+
+## Caminho B: validação via proxy do laboratório
+
+A proxy aponta para a GUI deste mesmo servidor de testbed, com os dispositivos do laboratório disponíveis para uso (incluindo Raspberry Pis e Jetsons ativos no ambiente de avaliação).
+
+- URL: `http://143.106.73.34/`
+- Credenciais: fornecidas sob solicitação aos autores
+
+Caso o avaliador não possua credenciais, deve entrar em contato com os autores para liberação de acesso durante o período de avaliação.
+
+# Experimentos
+
+Esta seção descreve como executar os experimentos para alcançar as principais reivindicações do artigo.
+
+## Reivindicações #X
+
+**Reivindicação:** execução fim-a-fim de FL com coleta de logs de treino, avaliação, hardware e tráfego de rede.
+
+### Arquivos de configuração relevantes
+
+- `ansible/inventory`
+- `ansible/group_vars/all/vault.yml`
+- `files_to_copy/client.py`
+- `files_to_copy/server.py`
+- `run.sh`
+
+### Passo a passo
+
+1. Concluir instalação e configuração (inventário, vault e SSH).
+2. Subir a GUI.
+3. Fazer upload do modelo.
+4. Executar deploy na aba Operações.
+5. Executar `run.sh`.
+6. Aguardar finalização do servidor Flower.
+7. Confirmar logs em `~/app/logs/`.
+
+### Tempo esperado
+
+- Tipicamente entre 10 e 30 minutos, dependendo do número de dispositivos e da estabilidade da rede.
+
+### Recursos esperados
+
+- Servidor de orquestração com acesso SSH a todos os nós.
+- Espaço em disco para logs e pcaps (recomendado > 2 GB por execução completa).
+
+### Resultado esperado
+
+- Presença de `train.csv`, `evaluate.csv`, `hardware_metrics.csv` por cliente.
+- Presença de pcap em `~/app/logs/pcaps/`.
+- Consolidação dos logs no servidor ao fim da execução.
+
+## Reivindicações #Y
+
+**Reivindicação:** visualização e análise dos resultados no painel (métricas de FL e hardware por cliente).
+
+### Arquivos de configuração relevantes
+
+- `streamlit_app.py`
+- `~/app/logs/` (gerado pela execução)
+
+### Passo a passo
+
+1. Garantir que a Reivindicação #X foi concluída e os logs foram coletados.
+2. Abrir a aba Gráficos na GUI.
+3. Validar curvas de treino e avaliação por round.
+4. Validar gráficos de hardware por cliente (memória, temperatura, tensão e métricas disponíveis).
+5. Exportar logs pela aba Logs para análise externa, se necessário.
+
+### Tempo esperado
+
+- Carregamento dos gráficos em segundos a poucos minutos, dependendo do volume de logs.
+
+### Recursos esperados
+
+- Ambiente Python da GUI com `streamlit`, `pandas` e `plotly` instalados.
+
+### Resultado esperado
+
+- Gráficos renderizados sem erro para os logs disponíveis.
+- Download dos artefatos de logs funcionando.
+
+> Caso a reprodução completa não seja viável no tempo da avaliação, recomenda-se reproduzir ao menos as reivindicações #X e #Y, que cobrem o ciclo principal de execução e análise apresentado no artigo.
+
+# LICENSE
+
+Este projeto é distribuído sob a licença MIT. Consulte o arquivo `LICENSE` para o texto completo.
