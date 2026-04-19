@@ -366,7 +366,7 @@ Caso o avaliador não possua credenciais, deve entrar em contato com os autores 
 
 Esta seção descreve como executar os experimentos para alcançar as principais reivindicações do artigo.
 
-## Reivindicações #X
+## Reivindicações #1
 
 **Reivindicação:** execução fim-a-fim de FL com coleta de logs de treino, avaliação, hardware e tráfego de rede.
 
@@ -403,7 +403,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 - Presença de pcap em `~/app/logs/pcaps/`.
 - Consolidação dos logs no servidor ao fim da execução.
 
-## Reivindicações #Y
+## Reivindicações #2
 
 **Reivindicação:** visualização e análise dos resultados no painel (métricas de FL e hardware por cliente).
 
@@ -437,4 +437,26 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 
 # LICENSE
 
-Este projeto é distribuído sob a licença MIT. Consulte o arquivo `LICENSE` para o texto completo.
+Este projeto é distribuído sob a licença MIT, cujo texto completo segue abaixo:
+
+MIT License
+
+Copyright (c) 2026 H.IAAC
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
