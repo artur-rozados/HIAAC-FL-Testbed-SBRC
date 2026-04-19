@@ -185,7 +185,7 @@ Arquivo de referência: `files_to_copy/requirements.txt`.
 1. O `run.sh` usa `sudo tcpdump` e `sudo pkill`; configure sudo sem senha apenas para esses binários e somente na máquina de orquestração.
 2. O inventário e o vault contêm dados sensíveis (IPs, usuários e senhas). Não publique `ansible/inventory` nem `ansible/group_vars/all/vault.yml` sem anonimização.
 3. Em ambiente público, use rede isolada para os dispositivos e restrinja acesso SSH por firewall/lista de IPs.
-4. A demonstração remota via proxy (`http://143.106.73.34/`) exige credenciais privadas, que estão no apêndice submetido.
+4. A demonstração remota via proxy (`http://143.106.73.34/`) pode exigir credenciais privadas, que estão no apêndice submetido.
 5. Recursos específicos/restritos (credenciais da proxy, detalhes de acesso remoto e qualquer material sensível) estão descritos no apêndice da submissão, conforme instruções.
 
 # Instalação
@@ -360,7 +360,7 @@ uv run streamlit run streamlit_app.py
 A proxy aponta para a GUI deste mesmo servidor de testbed, com os dispositivos do laboratório disponíveis para uso (incluindo Raspberry Pis e Jetsons ativos no ambiente de avaliação).
 
 - URL: `http://143.106.73.34/`
-- Credenciais: fornecidas sob solicitação aos autores
+- Credenciais: A interface pode estar com acesso aberto temporariamente para facilitar a avaliação do CTA. Caso o painel exija login, as credenciais privadas foram fornecidas de forma segura no documento de Apêndice submetido na plataforma.
 
 Caso o avaliador não possua credenciais, deve entrar em contato com os autores para liberação de acesso durante o período de avaliação.
 
