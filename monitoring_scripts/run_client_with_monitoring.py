@@ -97,6 +97,10 @@ class MonitoringWrapper:
         
         print(f"[Wrapper] Executando client.py...")
         try:
+            if not os.environ.get("HIAAC_SERVER_ADDRESS"):
+                address_file = self.app_folder / "server_address.txt"
+                if address_file.exists():
+                    os.environ["HIAAC_SERVER_ADDRESS"] = address_file.read_text().strip()
             # Roda o client.py bloqueando este processo até terminar
             result = subprocess.run(
                 [sys.executable, str(self.client_script)],

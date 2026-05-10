@@ -83,7 +83,7 @@ O testbed é composto por três tipos de nós em rede isolada:
 | **Raspberry Pi** | Variável | Clientes FL com treinamento local no dispositivo |
 | **NVIDIA Jetson** | Variável | Clientes FL com treinamento local no dispositivo |
 
-> **O servidor precisa ter o IP fixo `10.10.30.123`**, pois os clientes usam esse endereço para se conectar ao servidor Flower (porta 8080).
+> **Endereço do servidor Flower:** o `client.py` do modelo embute o IP do servidor (`fl.client.start_client(server_address=...)`). Os modelos de exemplo neste repositório (`MODELOS_exemplos/Modelos/*-training/client.py`) usam `10.10.30.123:8080`, que é o endereço do servidor do laboratório dos autores e funciona pela proxy. Para rodar com sua própria infraestrutura, edite essa linha em `client.py` antes de zipar/enviar o modelo, substituindo pelo IP da máquina que executa a GUI/servidor Flower.
 
 A comunicação entre servidor e clientes durante o treinamento usa o framework [Flower (flwr)](https://flower.ai/) v1.9.0 na porta 8080, com estratégia FedAvg.
 
@@ -127,6 +127,12 @@ Há três modelos de exemplo prontos em `MODELOS_exemplos/Modelos/`, em variante
 7. Para o `tcpdump` e faz rsync dos logs de todos os dispositivos para `~/app/logs/`
 
 **4. Resultados** — Na aba *Logs*, baixe os CSVs de métricas ou o pacote completo com o `.pcap`. Na aba *Gráficos*, visualize accuracy, loss e métricas de hardware interativamente.
+
+### Códigos de retorno do Ansible
+
+- `0`: execução concluída sem falhas.
+- `2`: falhas em tarefas do playbook.
+- `4`: um ou mais hosts inacessíveis (SSH/rede). O experimento prossegue com os hosts disponíveis e a GUI trata esse caso como sucesso parcial, com mensagem explicativa.
 
 ## Monitoramento de hardware
 
@@ -218,7 +224,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### 2. Clonar o repositório
 
-> **Atenção:** Clone diretamente em `~` (home), não em subpastas como `~/Desktop`. Os playbooks Ansible constroem todos os caminhos a partir de `~/HIAAC-FL-Testbed-SBRC` — qualquer outro local vai quebrar o deploy.
+> **Nota:** Por padrão, alguns playbooks assumem o caminho `~/HIAAC-FL-Testbed-SBRC`. Se você clonar em outro local, mantenha as variáveis de ambiente descritas mais abaixo configuradas e ajuste os paths nos playbooks quando necessário.
 
 ```bash
 cd ~
@@ -262,6 +268,30 @@ ansible-vault encrypt ansible/group_vars/all/vault.yml
 
 echo "sua-senha-do-vault" > ~/.ansible_vault_pass
 chmod 600 ~/.ansible_vault_pass
+```
+
+### 4.1. Configuração opcional por variáveis de ambiente
+
+As configurações abaixo são opcionais e mantêm os valores anteriores como padrão. Elas afetam a GUI e os scripts `run.sh` / `force_stop.sh`.
+
+- `HIAAC_INVENTORY`: caminho do inventory (ex.: `/caminho/para/ansible/inventory`)
+- `HIAAC_VAULT_PASS`: caminho do arquivo de senha do vault (ex.: `~/.ansible_vault_pass`)
+- `HIAAC_LOGS_DIR`: diretório de logs (padrão: `~/app/logs`)
+- `HIAAC_PYTHON_VERSION`: versão do Python usada nos playbooks (padrão: `python3.11`)
+- `HIAAC_DEVICE_IPS`: lista de IPs separados por vírgula para monitoramento na GUI
+- `HIAAC_SERVER_ADDRESS`: endereço do servidor Flower (ex.: `192.168.1.10:8080`); se não definido, o `run.sh` resolve automaticamente o IP do controller via `ip route get`. Os modelos de exemplo embutem o IP em `client.py` e ignoram essa variável — ela é usada apenas por modelos novos que optem por lê-la
+- `HIAAC_FLOWER_PORT`: porta usada no filtro do `tcpdump` no `run.sh` (padrão: `8080`)
+- `HIAAC_SERVER_PROCESS`: nome do processo do servidor para monitoramento (padrão: `server.py`)
+
+Exemplo:
+
+```bash
+export HIAAC_INVENTORY=/home/cta/projetos/HIAAC-FL-Testbed-SBRC/ansible/inventory
+export HIAAC_VAULT_PASS=/home/cta/.ansible_vault_pass
+export HIAAC_LOGS_DIR=/home/cta/app/logs
+export HIAAC_PYTHON_VERSION=python3.11
+export HIAAC_DEVICE_IPS="10.10.20.201,10.10.20.202"
+export HIAAC_SERVER_ADDRESS="192.168.1.10:8080"
 ```
 
 ### 5. Configurar acesso SSH
@@ -327,7 +357,7 @@ O painel de monitoramento em tempo real usa uma lista estática no arquivo `stre
 - `DEVICE_IPS`: IPs que serão pingados
 - `DEVICE_NAMES`: rótulos exibidos nos cards
 
-Para adaptar ao seu laboratório, edite esses dois blocos no início do arquivo.
+Para adaptar ao seu laboratorio, voce pode editar esses dois blocos no inicio do arquivo ou usar `HIAAC_DEVICE_IPS`.
 Boas práticas:
 
 - mantenha os mesmos IPs em `DEVICE_IPS` e em `DEVICE_NAMES`
@@ -352,7 +382,7 @@ uv run streamlit run streamlit_app.py
 4. Faça upload de um modelo de exemplo (`MODELOS_exemplos/Modelos/*.zip`).
 5. Execute o deploy na aba Operações.
 6. Execute o `run.sh` e aguarde o término.
-   > **Nota:** Durante o deploy (passo 5) ou na execução (passo 6), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline ou alocados para outras tarefas no laboratório. O experimento é resiliente, ignora os nós inativos e é concluído com sucesso com os dispositivos disponíveis. Basta ignorar o aviso e verificar os logs gerados.
+  > **Nota:** Durante o deploy (passo 5) ou na execução (passo 6), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline. O experimento pode concluir com os hosts disponíveis; na GUI esse caso aparece como OK com aviso de hosts inacessíveis. Verifique os logs gerados.
 7. Valide na aba Logs se os pacotes são gerados e na aba Gráficos se há dados carregados.
 
 ## Caminho B: validação via proxy do laboratório
@@ -387,7 +417,7 @@ Esta seção descreve como executar os experimentos para alcançar as principais
 3. Fazer upload do modelo.
 4. Executar deploy na aba Operações.
 5. Executar `run.sh`.
-   > **Nota:** Durante o deploy (passo 4) ou na execução (passo 5), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline ou alocados para outras tarefas no laboratório. O experimento é resiliente, ignora os nós inativos e é concluído com sucesso com os dispositivos disponíveis. Basta ignorar o aviso e verificar os logs gerados.
+  > **Nota:** Durante o deploy (passo 4) ou na execução (passo 5), o terminal pode exibir um erro de **"Código 4"** (Host Unreachable) gerado pelo Ansible. Isso ocorre pois o testbed é um ambiente físico compartilhado e alguns dispositivos podem estar temporariamente offline. O experimento pode concluir com os hosts disponíveis; na GUI esse caso aparece como OK com aviso de hosts inacessíveis. Verifique os logs gerados.
 6. Aguardar finalização do servidor Flower.
 7. Confirmar logs em `~/app/logs/`.
 

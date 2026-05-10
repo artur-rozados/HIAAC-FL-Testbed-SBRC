@@ -22,12 +22,6 @@ Carga da CPU | uptime ou top
 memória RAM
 Outras métricas de sistema relevante
 
-## Teste individual
--> Rodar 10 vezes cada para cada device
-- light_training.py
-- medium_training.py
-- heavy_training.py
-
 ## Teste federado
 -> Rodar 5 vezes cada em todos devices disponíveis
 - light-training folder

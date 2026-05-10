@@ -3,11 +3,30 @@
   - Raspberry_Pi
   - Jetsons
   become: no
+  vars:
+    flower_port: "{{ lookup('env', 'HIAAC_FLOWER_PORT') | default('8080', true) }}"
+    _env_addr: "{{ lookup('env', 'HIAAC_SERVER_ADDRESS') | default('', true) }}"
+    _fallback_ip: "{{ lookup('pipe', 'hostname -I') | split | first | default('127.0.0.1') }}"
+    server_address: "{{ _env_addr if _env_addr != '' else (_fallback_ip + ':' + flower_port) }}"
   tasks:
+    - name: Report server address
+      ansible.builtin.debug:
+        msg: "Server address: {{ server_address }}"
+      run_once: true
+
     - name: Include dir variables
       ansible.builtin.include_tasks: ../utils/get_dir.yaml
+
+    - name: Write server address file on clients
+      ansible.builtin.copy:
+        dest: "{{ path_remote_app_folder }}/server_address.txt"
+        content: "{{ server_address }}\n"
+        mode: "0644"
 
     - name: Run clients with monitoring in background
       ansible.builtin.shell:
         cmd: "nohup {{ path_remote_venv }}/bin/python {{ path_remote_app_folder }}/run_client_with_monitoring.py > {{ path_remote_app_folder }}/client.log 2>&1 < /dev/null &"
         chdir: "{{ path_remote_app_folder }}"
+      environment:
+        HIAAC_SERVER_ADDRESS: "{{ server_address }}"
+        HIAAC_FLOWER_PORT: "{{ flower_port }}"

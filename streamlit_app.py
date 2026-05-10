@@ -21,7 +21,7 @@ try:
 except Exception:
     st_autorefresh = None
 
-DEVICE_IPS = [
+DEFAULT_DEVICE_IPS = [
     "10.10.20.201",
     "10.10.20.202",
     "10.10.20.203",
@@ -39,7 +39,7 @@ DEVICE_IPS = [
     "10.10.20.236",
 ]
 
-DEVICE_NAMES = {
+DEFAULT_DEVICE_NAMES = {
     "10.10.20.201": "Raspberry Pi 1",
     "10.10.20.202": "Raspberry Pi 2",
     "10.10.20.203": "Raspberry Pi 3",
@@ -56,6 +56,29 @@ DEVICE_NAMES = {
     "10.10.20.235": "Jetson 5",
     "10.10.20.236": "Jetson 6",
 }
+
+
+def parse_device_ips_from_env() -> list[str]:
+    raw = os.environ.get("HIAAC_DEVICE_IPS", "").strip()
+    if not raw:
+        return DEFAULT_DEVICE_IPS
+    items = [item.strip() for item in raw.split(",") if item.strip()]
+    return items or DEFAULT_DEVICE_IPS
+
+
+DEVICE_IPS = parse_device_ips_from_env()
+DEVICE_NAMES = DEFAULT_DEVICE_NAMES
+
+INVENTORY_PATH = Path(
+    os.environ.get("HIAAC_INVENTORY", "ansible/inventory")
+).expanduser()
+VAULT_PASS_FILE = Path(
+    os.environ.get("HIAAC_VAULT_PASS", str(Path.home() / ".ansible_vault_pass"))
+).expanduser()
+LOGS_DIR = Path(
+    os.environ.get("HIAAC_LOGS_DIR", str(Path.home() / "app/logs"))
+).expanduser()
+PYTHON_VERSION = os.environ.get("HIAAC_PYTHON_VERSION", "python3.11")
 
 DEVICE_STATUS = {ip: {"online": None, "last_checked": None} for ip in DEVICE_IPS}
 DEVICE_STATUS_LOCK = threading.Lock()
@@ -325,11 +348,34 @@ def run_command(command: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(command, capture_output=True, text=True, cwd=str(Path.cwd()))
 
 
-def render_command_result(proc: subprocess.CompletedProcess, success_message: str) -> None:
+def describe_ansible_return_code(code: int) -> str | None:
+    if code == 2:
+        return "Falha em uma ou mais tarefas do playbook."
+    if code == 4:
+        return "Um ou mais hosts estão inacessíveis (SSH/rede)."
+    return None
+
+
+def render_command_result(
+    proc: subprocess.CompletedProcess,
+    success_message: str,
+    ansible_context: bool = False,
+) -> None:
     if proc.returncode == 0:
         st.success(success_message)
+    elif ansible_context and proc.returncode == 4:
+        st.success(success_message)
+        st.warning(
+            "Código 4 do Ansible: um ou mais dispositivos estão inacessíveis. "
+            "O experimento prosseguiu com os hosts disponíveis. "
+            "Verifique o resumo do playbook e os logs dos clientes disponíveis."
+        )
     else:
         st.error(f"Comando retornou código {proc.returncode}.")
+        if ansible_context:
+            hint = describe_ansible_return_code(proc.returncode)
+            if hint:
+                st.warning(f"Código {proc.returncode} do Ansible: {hint}")
     with st.expander("stdout", expanded=True):
         st.code(proc.stdout or "(sem saída)")
     with st.expander("stderr"):
@@ -344,25 +390,26 @@ def render_operations_tab() -> None:
         st.markdown("##### 📦 Deploy Ansible")
         st.caption("Executa `ansible/build.yaml` com as credenciais do vault.")
         if st.button("Executar ansible-playbook", width="stretch", key="btn_ansible"):
-            vault_file = Path.home() / ".ansible_vault_pass"
             if shutil.which("ansible-playbook") is None:
                 st.error("`ansible-playbook` não está disponível no PATH.")
-            elif not vault_file.exists():
-                st.error("Arquivo ~/.ansible_vault_pass não encontrado.")
+            elif not INVENTORY_PATH.exists():
+                st.error(f"Inventory não encontrado: {INVENTORY_PATH}")
+            elif not VAULT_PASS_FILE.exists():
+                st.error(f"Arquivo de senha do vault não encontrado: {VAULT_PASS_FILE}")
             else:
                 cmd = [
                     "ansible-playbook",
                     "-i",
-                    "ansible/inventory",
+                    str(INVENTORY_PATH),
                     "ansible/build.yaml",
                     "--vault-password-file",
-                    str(vault_file),
+                    str(VAULT_PASS_FILE),
                     "-e",
-                    "PYTHON_VERSION=python3.11",
+                    f"PYTHON_VERSION={PYTHON_VERSION}",
                 ]
                 with st.spinner("Executando playbook..."):
                     proc = run_command(cmd)
-                render_command_result(proc, "Playbook executado com sucesso.")
+                render_command_result(proc, "Playbook executado com sucesso.", ansible_context=True)
 
     with scripts_col:
         st.markdown("##### 🖥️ Scripts locais")
@@ -390,9 +437,9 @@ def render_operations_tab() -> None:
 def render_logs_tab() -> None:
     st.markdown("#### 🗂️ Logs dos clientes")
     st.write("Gera pacotes com logs de métricas, treinamento e/ou captura de rede.")
-    logs_dir = Path.home() / "app/logs"
+    logs_dir = LOGS_DIR
     if not logs_dir.exists():
-        st.warning("Diretório ~/app/logs não encontrado.")
+        st.warning(f"Diretório de logs não encontrado: {logs_dir}")
         return
 
     col1, col2 = st.columns(2)
@@ -475,9 +522,9 @@ def render_charts_tab() -> None:
         st.error("Instale as dependências: `pip install pandas plotly`")
         return
 
-    logs_dir = Path.home() / "app/logs"
+    logs_dir = LOGS_DIR
     if not logs_dir.exists():
-        st.warning("Diretório ~/app/logs não encontrado. Execute um experimento primeiro.")
+        st.warning(f"Diretório de logs não encontrado: {logs_dir}")
         return
 
     train_frames, eval_frames, hw_frames = _load_fl_csvs(logs_dir)
