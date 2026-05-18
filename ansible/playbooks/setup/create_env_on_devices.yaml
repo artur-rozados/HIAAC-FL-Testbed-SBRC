@@ -5,7 +5,7 @@
   - Jetsons
   become: no
   vars:
-    python_version_cmd: "{{ PYTHON_VERSION | default('python3.11') }}"
+    python_version_cmd: "{{ PYTHON_VERSION | default('python3.10') }}"
     python_version_uv: "{{ python_version_cmd | regex_replace('^python', '') }}"
 
   tasks:
@@ -103,7 +103,7 @@
   connection: local
   become: no
   vars:
-    python_version_cmd: "{{ PYTHON_VERSION | default('python3.11') }}"
+    python_version_cmd: "{{ PYTHON_VERSION | default('python3.10') }}"
     python_version_uv: "{{ python_version_cmd | regex_replace('^python', '') }}"
 
   tasks:

@@ -78,7 +78,7 @@ VAULT_PASS_FILE = Path(
 LOGS_DIR = Path(
     os.environ.get("HIAAC_LOGS_DIR", str(Path.home() / "app/logs"))
 ).expanduser()
-PYTHON_VERSION = os.environ.get("HIAAC_PYTHON_VERSION", "python3.11")
+PYTHON_VERSION = os.environ.get("HIAAC_PYTHON_VERSION", "python3.10")
 
 DEVICE_STATUS = {ip: {"online": None, "last_checked": None} for ip in DEVICE_IPS}
 DEVICE_STATUS_LOCK = threading.Lock()

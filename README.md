@@ -128,11 +128,11 @@ Há três modelos de exemplo prontos em `MODELOS_exemplos/Modelos/`, em variante
 
 **4. Resultados** — Na aba *Logs*, baixe os CSVs de métricas ou o pacote completo com o `.pcap`. Na aba *Gráficos*, visualize accuracy, loss e métricas de hardware interativamente.
 
-### Códigos de retorno do Ansible
+### Codigos de retorno do Ansible
 
-- `0`: execução concluída sem falhas.
+- `0`: execucao concluida sem falhas.
 - `2`: falhas em tarefas do playbook.
-- `4`: um ou mais hosts inacessíveis (SSH/rede). O experimento prossegue com os hosts disponíveis e a GUI trata esse caso como sucesso parcial, com mensagem explicativa.
+- `4`: um ou mais hosts inacessiveis (SSH/rede). O experimento pode concluir com os hosts disponiveis.
 
 ## Monitoramento de hardware
 
@@ -157,7 +157,7 @@ app/logs/
 
 ## Dependências da interface (servidor local)
 
-- Python 3.11+
+- Python 3.10+
 - streamlit
 - pandas
 - plotly
@@ -198,7 +198,7 @@ Arquivo de referência: `files_to_copy/requirements.txt`.
 
 ### Pré-requisitos (na máquina / computador / servidor)
 
-- Python 3.11+
+- Python 3.10+
 - Ansible 2.15+
 - `uv` instalado localmente
 - `sudo` sem senha para `tcpdump` (usado pelo `run.sh` para captura de rede)
@@ -206,11 +206,11 @@ Arquivo de referência: `files_to_copy/requirements.txt`.
 
 ### 1. Instalar dependências
 
-Instale **Python 3.11+**, **Ansible 2.15+** e **uv** usando o gerenciador de pacotes da sua distro/sistema. Exemplo no Ubuntu/Debian:
+Instale **Python 3.10+**, **Ansible 2.15+** e **uv** usando o gerenciador de pacotes da sua distro/sistema. Exemplo no Ubuntu/Debian:
 
 ```bash
-# Python 3.11 + venv (no Debian/Ubuntu vêm em pacotes separados; no Arch/macOS, venv já vem junto com o Python)
-sudo apt install python3.11 python3.11-venv
+# Python 3.10 + venv (no Debian/Ubuntu vêm em pacotes separados; no Arch/macOS, venv já vem junto com o Python)
+sudo apt install python3.10 python3.10-venv
 
 # Ansible (exemplo: apt)
 sudo apt install ansible
@@ -236,7 +236,7 @@ Crie o venv e instale as dependências da GUI Streamlit:
 
 ```bash
 # Usando uv (recomendado — já instalado no passo anterior)
-uv venv .venv --python python3.11
+uv venv .venv --python python3.10
 uv pip install -r requirements.txt
 ```
 
@@ -277,7 +277,7 @@ As configurações abaixo são opcionais e mantêm os valores anteriores como pa
 - `HIAAC_INVENTORY`: caminho do inventory (ex.: `/caminho/para/ansible/inventory`)
 - `HIAAC_VAULT_PASS`: caminho do arquivo de senha do vault (ex.: `~/.ansible_vault_pass`)
 - `HIAAC_LOGS_DIR`: diretório de logs (padrão: `~/app/logs`)
-- `HIAAC_PYTHON_VERSION`: versão do Python usada nos playbooks (padrão: `python3.11`)
+- `HIAAC_PYTHON_VERSION`: versão do Python usada nos playbooks (padrão: `python3.10`)
 - `HIAAC_DEVICE_IPS`: lista de IPs separados por vírgula para monitoramento na GUI
 - `HIAAC_SERVER_ADDRESS`: endereço do servidor Flower (ex.: `192.168.1.10:8080`); se não definido, o `run.sh` resolve automaticamente o IP do controller via `ip route get`. Os modelos de exemplo embutem o IP em `client.py` e ignoram essa variável — ela é usada apenas por modelos novos que optem por lê-la
 - `HIAAC_FLOWER_PORT`: porta usada no filtro do `tcpdump` no `run.sh` (padrão: `8080`)
@@ -289,7 +289,7 @@ Exemplo:
 export HIAAC_INVENTORY=/home/cta/projetos/HIAAC-FL-Testbed-SBRC/ansible/inventory
 export HIAAC_VAULT_PASS=/home/cta/.ansible_vault_pass
 export HIAAC_LOGS_DIR=/home/cta/app/logs
-export HIAAC_PYTHON_VERSION=python3.11
+export HIAAC_PYTHON_VERSION=python3.10
 export HIAAC_DEVICE_IPS="10.10.20.201,10.10.20.202"
 export HIAAC_SERVER_ADDRESS="192.168.1.10:8080"
 ```
@@ -315,7 +315,7 @@ O `ansible/build.yaml` executa um bootstrap idempotente antes do copy/venv. Em P
 
 - instala apenas o que estiver faltando (`curl`, `python3`, `python3-venv`, `python3-pip`, `uv`)
 - avisa (sem travar treino) se faltar `vcgencmd` em Raspberry Pi ou `tegrastats` em Jetson
-- na etapa de criação de venv, usa `PYTHON_VERSION` (padrão `python3.11`); quando essa versão não estiver no sistema, o `uv` usa runtime gerenciado
+- na etapa de criação de venv, usa `PYTHON_VERSION` (padrão `python3.10`); quando essa versão não estiver no sistema, o `uv` usa runtime gerenciado
 
 > Se você aumentar o número de clientes, aumente também o `forks` no `ansible.cfg` para manter o deploy paralelo proporcional.
 

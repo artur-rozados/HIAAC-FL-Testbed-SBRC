@@ -3,7 +3,7 @@
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INVENTORY_PATH="${HIAAC_INVENTORY:-$ROOT_DIR/ansible/inventory}"
 VAULT_PASS="${HIAAC_VAULT_PASS:-$HOME/.ansible_vault_pass}"
-PYTHON_VERSION="${HIAAC_PYTHON_VERSION:-python3.11}"
+PYTHON_VERSION="${HIAAC_PYTHON_VERSION:-python3.10}"
 SERVER_PROCESS="${HIAAC_SERVER_PROCESS:-server.py}"
 
 pkill -f "tcpdump"
