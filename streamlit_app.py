@@ -360,16 +360,12 @@ def render_command_result(
     proc: subprocess.CompletedProcess,
     success_message: str,
     ansible_context: bool = False,
+    partial_success_message: str = "OK - Playbook executado, mas um ou mais hosts estão inacessíveis.",
 ) -> None:
     if proc.returncode == 0:
         st.success(success_message)
     elif ansible_context and proc.returncode == 4:
-        st.success(success_message)
-        st.warning(
-            "Código 4 do Ansible: um ou mais dispositivos estão inacessíveis. "
-            "O experimento prosseguiu com os hosts disponíveis. "
-            "Verifique o resumo do playbook e os logs dos clientes disponíveis."
-        )
+        st.success(partial_success_message)
     else:
         st.error(f"Comando retornou código {proc.returncode}.")
         if ansible_context:
@@ -422,7 +418,12 @@ def render_operations_tab() -> None:
                 else:
                     with st.spinner("Executando run.sh..."):
                         proc = run_command(["bash", str(script)])
-                    render_command_result(proc, "run.sh finalizado.")
+                    render_command_result(
+                        proc,
+                        "run.sh finalizado.",
+                        ansible_context=True,
+                        partial_success_message="run.sh finalizado — Sucesso, mas um ou mais hosts estão inacessíveis.",
+                    )
         with col_stop:
             if st.button("Forçar stop", width="stretch", key="btn_stop_sh"):
                 script = Path("force_stop.sh")
