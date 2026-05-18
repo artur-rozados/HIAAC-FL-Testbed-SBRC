@@ -78,6 +78,7 @@
       ansible.builtin.command:
         cmd: >-
           {{ path_remote_uv }} pip install
+          --index-strategy unsafe-best-match
           --python {{ path_remote_venv }}/bin/python
           -r {{ path_remote_app_folder }}/requirements.txt
       when: remote_requirements_hash != remote_requirements_previous_hash
@@ -170,6 +171,7 @@
       ansible.builtin.command:
         cmd: >-
           {{ path_local_uv }} pip install
+          --index-strategy unsafe-best-match
           --python {{ path_local_venv }}/bin/python
           -r {{ path_local_app_folder }}/requirements.txt
       when: local_requirements_hash != local_requirements_previous_hash

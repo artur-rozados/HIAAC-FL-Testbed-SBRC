@@ -13,6 +13,15 @@
         src: "{{ path_files_to_copy }}/"
         dest: "{{ path_remote_app_folder }}/"
 
+    # Raspberry Pi nao tem GPU/CUDA: remove indices extras (ex.: repo Jetson da NVIDIA)
+    # do requirements.txt para resolver os pacotes apenas pelo PyPI padrao.
+    - name: Strip extra package indexes from requirements.txt on Raspberry Pi
+      ansible.builtin.lineinfile:
+        path: "{{ path_remote_app_folder }}/requirements.txt"
+        state: absent
+        regexp: '^\s*--(extra-)?index-url'
+      when: "'Raspberry_Pi' in group_names"
+
     - name: Copy monitoring script to Raspberry Pi
       ansible.builtin.copy:
         src: "{{ path_monitoring_scripts }}/monitor_pi.sh"
