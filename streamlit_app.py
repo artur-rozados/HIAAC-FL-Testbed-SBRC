@@ -722,11 +722,16 @@ def _load_fl_csvs(logs_dir: Path) -> tuple[list, list, list]:
         hw_path = client_dir / "hardware_metrics.csv"
         if hw_path.exists():
             try:
-                df = pd.read_csv(hw_path)
+                df = pd.read_csv(hw_path, decimal=',')
                 df["client"] = client
                 hw_frames.append(df)
             except Exception:
-                pass
+                try:
+                    df = pd.read_csv(hw_path, decimal='.')
+                    df["client"] = client
+                    hw_frames.append(df)
+                except Exception:
+                    pass
     return train_frames, eval_frames, hw_frames
 
 
@@ -854,10 +859,15 @@ def render_charts_tab() -> None:
         numeric_cols = [
             "cpu_temp_C",
             "core_voltage_V",
-            "cpu_load_1min",
+            "cpu_load_5min",
+            "cpu_load_15min",
             "mem_usage_percent",
             "mem_used_MB",
+            "mem_total_MB",
+            "mem_free_MB",
+            "mem_available_MB",
             "cpu_usage_percent",
+            "gpu_usage_percent",
             "power_mW",
         ]
         for col in numeric_cols:
@@ -872,18 +882,21 @@ def render_charts_tab() -> None:
         st.caption("Nos logs atuais, Raspberry Pi não envia CPU em %; envia CPU Load (1/5/15 min).")
 
         metric_options = {
-            "Temperatura CPU (°C) - Pis": ("cpu_temp_C", "pi"),
-            "Uso de Memória (%)": ("mem_usage_percent", None),
-            "Uso de Memória (MB)": ("mem_used_MB", None),
-            "Tensão de Core (V) - Pis": ("core_voltage_V", "pi"),
-            "CPU Load 1min - Pis": ("cpu_load_1min", "pi"),
+            "CPU (% uso)": ("cpu_usage_percent", None),
+            "CPU (% uso) - Pis": ("cpu_usage_percent", "pi"),
             "CPU (% uso) - Jetsons": ("cpu_usage_percent", "jetson"),
+            "Temperatura CPU (°C) - Pis": ("cpu_temp_C", "pi"),
+            "Tensão de Core (V) - Pis": ("core_voltage_V", "pi"),
+            "Uso de Memória (%)": ("mem_usage_percent", None),
+            "Memória Usada (MB)": ("mem_used_MB", None),
+            "GPU (% uso) - Jetsons": ("gpu_usage_percent", "jetson"),
             "Energia/Potência (mW) - Jetsons": ("power_mW", "jetson"),
         }
+        default_metrics = [k for k in metric_options.keys() if k not in ["CPU (% uso) - Pis", "CPU (% uso) - Jetsons"]]
         selected = st.multiselect(
             "Métricas de hardware",
             list(metric_options.keys()),
-            default=list(metric_options.keys()),
+            default=default_metrics,
         )
 
         for label in selected:

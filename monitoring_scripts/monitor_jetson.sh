@@ -5,6 +5,7 @@ mkdir -p "$OUTPUT_DIR"
 METRICS_FILE="$OUTPUT_DIR/hardware_metrics.csv"
 TEGRASTATS_RAW="$OUTPUT_DIR/tegrastats_raw.log"
 INTERVAL_MS=${1:-1000}
+DEBUG=${DEBUG:-0}
 
 # Keep command output and numeric formatting locale-independent for comma-separated CSV.
 export LC_ALL=C
@@ -26,12 +27,19 @@ tegrastats --interval $INTERVAL_MS 2>/dev/null | while IFS= read -r line; do
     GPU_USAGE=$(echo "$line" | grep -oP 'GR3D_FREQ \K\d+(?=%)')
     [ -z "$GPU_USAGE" ] && GPU_USAGE="0"
     TEMP_CPU=$(echo "$line" | grep -oP 'CPU@\K[\d.]+' | head -1)
-    TEMP_GPU=$(echo "$line" | grep -oP 'GPU@\K[\d.]+' | head -1)
-    TEMP_THERMAL=$(echo "$line" | grep -oP 'thermal@\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'Tdiode[@=]\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'CPU[@=]\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP '\bT[A-Za-z_]*[@=]\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'CV[@=]\K[\d.]+' | head -1)
     [ -z "$TEMP_CPU" ] && TEMP_CPU="0"
+    TEMP_GPU=$(echo "$line" | grep -oP 'GPU@\K[\d.]+' | head -1)
     [ -z "$TEMP_GPU" ] && TEMP_GPU="0"
+    TEMP_THERMAL=$(echo "$line" | grep -oP 'thermal@\K[\d.]+' | head -1)
     [ -z "$TEMP_THERMAL" ] && TEMP_THERMAL="0"
     POWER=$(echo "$line" | grep -oP 'VDD_IN \K\d+')
     [ -z "$POWER" ] && POWER="0"
+
+    [ "$DEBUG" = "1" ] && echo "[DEBUG] TEMP_CPU=$TEMP_CPU (line: ${line:0:100}...)" >&2
+
     echo "$TIMESTAMP,$CPU_USAGE,$MEM_USED,$MEM_TOTAL,$MEM_PERCENT,$GPU_USAGE,$TEMP_CPU,$TEMP_GPU,$TEMP_THERMAL,$POWER" >> "$METRICS_FILE"
 done
