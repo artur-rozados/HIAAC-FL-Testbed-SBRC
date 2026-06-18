@@ -1,13 +1,21 @@
 import os
 import time
+import base64
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from functools import lru_cache
 import subprocess
 import shutil
 import threading
 import streamlit as st
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+
+# Identidade visual H.IAAC
+ASSETS_DIR = Path(__file__).resolve().parent / "Assets"
+LOGO_PATH = ASSETS_DIR / "HIAAC_logo.png"
+BRAND_ORANGE = "#FF9D1C"  # laranja da logo
+BRAND_GRAY = "#7D7C7B"    # cinza da logo
 
 try:
     import pandas as pd
@@ -87,24 +95,90 @@ DEVICE_MONITOR_INTERVAL_SECONDS = 5
 CUSTOM_CSS = """
 <style>
 :root {
-    --card-bg: #0f172a;
-    --card-border: rgba(255,255,255,0.08);
-    --text-muted: #9ca3af;
+    --brand-orange: #FF9D1C;
+    --brand-orange-dark: #E8870A;
+    --brand-orange-soft: rgba(255,157,28,0.14);
+    --brand-gray: #7D7C7B;
+    --page-bg: #FFFFFF;
+    --card-bg: #F1F0EE;
+    --card-soft: #E7E6E3;
+    --card-border: rgba(125,124,123,0.28);
+    --text-strong: #2E2D2C;
+    --text-muted: #7D7C7B;
+    --online: #1FA85A;
+    --offline: #E2574F;
 }
 
+/* Densidade padrão menor (≈80%) sem usar o zoom do navegador, que deixava
+   uma faixa/quadrado em branco sobrando na tela. font-size escala todo o
+   conteúdo baseado em rem e preenche a viewport por inteiro. */
+html {
+    font-size: 70% !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    background: var(--page-bg);
+}
+[data-testid="stHeader"] {
+    background: transparent;
+}
 section.main > div {
     padding-top: 0 !important;
 }
 
+/* ── Cabeçalho com a marca ───────────────────────────────────────────── */
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 1.4rem;
+    padding: 1.1rem 1.6rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-bottom: 3px solid var(--brand-orange);
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(125,124,123,0.14);
+    margin-bottom: 1.25rem;
+}
+.app-header .app-logo {
+    height: 100px;
+    width: auto;
+}
+.app-header .app-header-text {
+    border-left: 2px solid var(--card-border);
+    padding-left: 1.4rem;
+}
+.app-header .app-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    line-height: 1.15;
+    margin: 0;
+}
+.app-header .app-title .accent {
+    color: var(--brand-orange);
+}
+.app-header .app-subtitle {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* ── Cartões de seção ────────────────────────────────────────────────── */
 .section-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
+    border-bottom: 3px solid var(--brand-orange);
     border-radius: 18px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 1rem;
-    box-shadow: 0 18px 35px rgba(15,23,42,0.35);
+    box-shadow: 0 10px 28px rgba(125,124,123,0.10);
+}
+.section-card h3 {
+    color: var(--text-strong);
+    margin-top: 0.2rem;
 }
 
+/* ── Grade de dispositivos ───────────────────────────────────────────── */
 .device-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -118,16 +192,26 @@ section.main > div {
 .device-card {
     border-radius: 16px;
     padding: 0.85rem 1rem;
-    border: 1px solid rgba(255,255,255,0.06);
-    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--brand-gray);
+    background: var(--card-soft);
+    transition: transform .12s ease, box-shadow .12s ease;
 }
-
+.device-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(125,124,123,0.16);
+}
+.device-card strong {
+    color: var(--text-strong);
+}
 .device-card.online {
-    border-color: rgba(34,197,94,0.8);
+    border-left-color: var(--online);
 }
-
 .device-card.offline {
-    border-color: rgba(248,113,113,0.8);
+    border-left-color: var(--offline);
+}
+.device-card.unknown {
+    border-left-color: var(--brand-gray);
 }
 
 .status-dot {
@@ -139,17 +223,17 @@ section.main > div {
 }
 
 .status-dot.online {
-    background: #22c55e;
-    box-shadow: 0 0 8px rgba(34,197,94,0.8);
+    background: var(--online);
+    box-shadow: 0 0 8px rgba(31,168,90,0.7);
 }
 
 .status-dot.offline {
-    background: #f87171;
-    box-shadow: 0 0 8px rgba(248,113,113,0.8);
+    background: var(--offline);
+    box-shadow: 0 0 8px rgba(226,87,79,0.7);
 }
 
 .status-dot.muted {
-    background: var(--text-muted);
+    background: var(--brand-gray);
     box-shadow: none;
 }
 
@@ -158,11 +242,139 @@ section.main > div {
     color: var(--text-muted);
 }
 
-button[kind="secondary"] {
+/* ── Botões ──────────────────────────────────────────────────────────── */
+.stButton > button {
     border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background: #FFFFFF;
+    color: var(--text-strong);
+    font-weight: 600;
+    transition: all .15s ease;
+}
+.stButton > button:hover {
+    border-color: var(--brand-orange);
+    color: var(--brand-orange-dark);
+    background: var(--brand-orange-soft);
+}
+.stButton > button:active,
+.stButton > button:focus:not(:active) {
+    border-color: var(--brand-orange);
+    color: var(--brand-orange-dark);
+    box-shadow: 0 0 0 2px var(--brand-orange-soft);
+}
+
+/* Botões de download em destaque (laranja sólido) */
+.stDownloadButton > button {
+    border-radius: 999px;
+    background: var(--brand-orange);
+    border: 1px solid var(--brand-orange);
+    color: #ffffff;
+    font-weight: 600;
+}
+.stDownloadButton > button:hover {
+    background: var(--brand-orange-dark);
+    border-color: var(--brand-orange-dark);
+    color: #ffffff;
+}
+
+/* ── Abas ────────────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--card-border);
+}
+.stTabs [data-baseweb="tab"] {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.stTabs [aria-selected="true"] {
+    color: var(--brand-orange-dark) !important;
+}
+/* Apenas o sublinhado da aba ativa fica laranja (não o painel de conteúdo). */
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: var(--brand-orange) !important;
+}
+
+/* ── Métricas ────────────────────────────────────────────────────────── */
+[data-testid="stMetric"],
+[data-testid="metric-container"] {
+    background: var(--card-soft);
+    border: 1px solid var(--card-border);
+    border-left: 3px solid var(--brand-orange);
+    border-radius: 14px;
+    padding: 0.6rem 0.9rem;
+}
+[data-testid="stMetricValue"] {
+    color: var(--text-strong);
+}
+
+h1, h2, h3 {
+    color: var(--text-strong);
+}
+
+/* Acento laranja nos títulos de cada aba */
+.stTabs h4,
+.stTabs h5 {
+    border-left: 3px solid var(--brand-orange);
+    padding-left: 0.6rem;
+    color: var(--text-strong);
 }
 </style>
 """
+
+
+@lru_cache(maxsize=4)
+def _logo_data_uri_cached(path_str: str, mtime: float, max_height: int) -> str:
+    """Redimensiona a logo para `max_height` px e devolve como data URI base64.
+
+    Evita embutir imagens grandes inline no HTML (a cada autorefresh), o que
+    deixava o site lento/travado. Mantém o arquivo original intacto.
+    """
+    try:
+        from PIL import Image
+
+        with Image.open(path_str) as img:
+            img = img.convert("RGBA")
+            if img.height > max_height:
+                ratio = max_height / img.height
+                new_size = (max(1, round(img.width * ratio)), max_height)
+                img = img.resize(new_size, Image.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+        encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/png;base64,{encoded}"
+    except Exception:
+        return ""
+
+
+def _logo_data_uri() -> str:
+    """Retorna a logo como data URI (vazio se o arquivo não existir).
+
+    A chave de cache inclui o mtime, então trocar a imagem atualiza sem reiniciar.
+    """
+    try:
+        mtime = LOGO_PATH.stat().st_mtime
+    except OSError:
+        return ""
+    return _logo_data_uri_cached(str(LOGO_PATH), mtime, 256)
+
+
+def render_header() -> None:
+    uri = _logo_data_uri()
+    logo_html = (
+        f"<img src='{uri}' class='app-logo' alt='H.IAAC'/>" if uri else ""
+    )
+    st.markdown(
+        f"""
+        <div class='app-header'>
+            {logo_html}
+            <div class='app-header-text'>
+                <div class='app-title'>Federated Learning <span class='accent'>Testbed</span></div>
+                <div class='app-subtitle'>Operações remotas de dispositivos, deploy e coleta de logs em um único painel.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def ping_once(ip: str) -> bool:
@@ -711,7 +923,8 @@ def render_charts_tab() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="HIAAC Testbed Console", layout="wide", page_icon="🛰️")
+    page_icon = str(LOGO_PATH) if LOGO_PATH.exists() else "🛰️"
+    st.set_page_config(page_title="HIAAC Testbed Console", layout="wide", page_icon=page_icon)
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
     if st_autorefresh:
@@ -719,8 +932,7 @@ def main() -> None:
 
     ensure_device_monitor_running()
 
-    st.title("HIAAC Federated Learning Testbed")
-    st.caption("Operações remotas de dispositivos, deploy e coleta de logs em um único painel.")
+    render_header()
 
     render_device_status_section()
 

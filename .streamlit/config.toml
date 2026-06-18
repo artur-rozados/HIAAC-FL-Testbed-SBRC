@@ -1,0 +1,7 @@
+[theme]
+# Paleta da marca H.IAAC — laranja #FF9D1C e cinza #7D7C7B (extraídos da logo)
+base = "light"
+primaryColor = "#FF9D1C"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F0EE"
+textColor = "#2E2D2C"
