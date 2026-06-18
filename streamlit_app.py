@@ -927,9 +927,6 @@ def main() -> None:
     st.set_page_config(page_title="HIAAC Testbed Console", layout="wide", page_icon=page_icon)
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-    if st_autorefresh:
-        st_autorefresh(interval=5_000, key="device-status-refresh")
-
     ensure_device_monitor_running()
 
     render_header()
