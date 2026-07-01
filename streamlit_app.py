@@ -722,16 +722,15 @@ def _load_fl_csvs(logs_dir: Path) -> tuple[list, list, list]:
         hw_path = client_dir / "hardware_metrics.csv"
         if hw_path.exists():
             try:
-                df = pd.read_csv(hw_path, decimal=',')
+                # Os CSVs de hardware usam vírgula como separador de campo e
+                # ponto como separador decimal (ex.: "54.9,0.8630,..."). Ler com
+                # decimal=',' quebra a interpretação: as colunas float chegam
+                # como texto. Mantemos o padrão do pandas (ponto decimal).
+                df = pd.read_csv(hw_path)
                 df["client"] = client
                 hw_frames.append(df)
             except Exception:
-                try:
-                    df = pd.read_csv(hw_path, decimal='.')
-                    df["client"] = client
-                    hw_frames.append(df)
-                except Exception:
-                    pass
+                pass
     return train_frames, eval_frames, hw_frames
 
 
@@ -855,23 +854,10 @@ def render_charts_tab() -> None:
             st.warning("Nenhum dado de hardware válido encontrado.")
             return
 
-        # Normaliza colunas numéricas para evitar falhas quando CSV chega como texto.
-        numeric_cols = [
-            "cpu_temp_C",
-            "core_voltage_V",
-            "cpu_load_5min",
-            "cpu_load_15min",
-            "mem_usage_percent",
-            "mem_used_MB",
-            "mem_total_MB",
-            "mem_free_MB",
-            "mem_available_MB",
-            "cpu_usage_percent",
-            "gpu_usage_percent",
-            "power_mW",
-        ]
-        for col in numeric_cols:
-            if col in hw_df.columns:
+        # Converte todas as colunas de métricas para numérico (exceto timestamp e
+        # client), de forma robusta contra CSVs que cheguem como texto.
+        for col in hw_df.columns:
+            if col not in ("timestamp", "client"):
                 hw_df[col] = pd.to_numeric(hw_df[col], errors="coerce")
 
         # Distingue clientes Raspberry Pi e Jetson pelo nome da pasta do cliente.
@@ -879,24 +865,44 @@ def render_charts_tab() -> None:
             lambda name: "jetson" if "jetson" in name else "pi"
         )
 
-        st.caption("Nos logs atuais, Raspberry Pi não envia CPU em %; envia CPU Load (1/5/15 min).")
-
+        # (label -> (coluna no CSV, escopo de cliente)). Raspberry Pi e Jetson
+        # coletam colunas diferentes: os Pis expõem cpu_temp_C/core_voltage_V,
+        # enquanto os Jetsons expõem temp_CPU_C/temp_GPU_C/gpu_usage_percent/power_mW.
         metric_options = {
             "CPU (% uso)": ("cpu_usage_percent", None),
-            "CPU (% uso) - Pis": ("cpu_usage_percent", "pi"),
-            "CPU (% uso) - Jetsons": ("cpu_usage_percent", "jetson"),
-            "Temperatura CPU (°C) - Pis": ("cpu_temp_C", "pi"),
-            "Tensão de Core (V) - Pis": ("core_voltage_V", "pi"),
             "Uso de Memória (%)": ("mem_usage_percent", None),
             "Memória Usada (MB)": ("mem_used_MB", None),
+            "Temperatura CPU (°C) - Pis": ("cpu_temp_C", "pi"),
+            "Tensão de Core (V) - Pis": ("core_voltage_V", "pi"),
+            "Temperatura CPU (°C) - Jetsons": ("temp_CPU_C", "jetson"),
             "GPU (% uso) - Jetsons": ("gpu_usage_percent", "jetson"),
             "Energia/Potência (mW) - Jetsons": ("power_mW", "jetson"),
         }
-        default_metrics = [k for k in metric_options.keys() if k not in ["CPU (% uso) - Pis", "CPU (% uso) - Jetsons"]]
+
+        def _metric_has_data(col: str, scope: str | None) -> bool:
+            if col not in hw_df.columns:
+                return False
+            sub = hw_df if scope is None else hw_df[hw_df["client_kind"] == scope]
+            return bool(sub[col].notna().any())
+
+        # Só oferecemos as métricas que de fato têm dados nos logs atuais, para
+        # não poluir a interface com avisos de "coluna não encontrada" quando o
+        # experimento tem apenas Raspberry Pis ou apenas Jetsons.
+        available_metrics = [
+            label for label, (col, scope) in metric_options.items()
+            if _metric_has_data(col, scope)
+        ]
+
+        if not available_metrics:
+            st.info("Nenhuma métrica de hardware com dados nos logs atuais.")
+            return
+
+        st.caption("As métricas exibidas dependem do tipo de cliente presente nos logs (Raspberry Pi ou Jetson).")
+
         selected = st.multiselect(
             "Métricas de hardware",
-            list(metric_options.keys()),
-            default=default_metrics,
+            available_metrics,
+            default=available_metrics,
         )
 
         for label in selected:
