@@ -26,15 +26,18 @@ tegrastats --interval $INTERVAL_MS 2>/dev/null | while IFS= read -r line; do
     MEM_PERCENT=$(awk "BEGIN {printf \"%.2f\", ($MEM_USED/$MEM_TOTAL)*100}")
     GPU_USAGE=$(echo "$line" | grep -oP 'GR3D_FREQ \K\d+(?=%)')
     [ -z "$GPU_USAGE" ] && GPU_USAGE="0"
-    TEMP_CPU=$(echo "$line" | grep -oP 'CPU@\K[\d.]+' | head -1)
-    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'Tdiode[@=]\K[\d.]+' | head -1)
-    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'CPU[@=]\K[\d.]+' | head -1)
-    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP '\bT[A-Za-z_]*[@=]\K[\d.]+' | head -1)
-    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oP 'CV[@=]\K[\d.]+' | head -1)
+    # O tegrastats emite os rótulos térmicos em minúsculas (cpu@, gpu@, tj@).
+    # Usamos -i (case-insensitive) para casar tanto maiúsculas quanto minúsculas
+    # entre modelos de Jetson diferentes; senão a temperatura sai sempre 0.
+    TEMP_CPU=$(echo "$line" | grep -oiP 'cpu@\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oiP 'Tdiode[@=]\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oiP 'tj[@=]\K[\d.]+' | head -1)
+    [ -z "$TEMP_CPU" ] && TEMP_CPU=$(echo "$line" | grep -oiP 'CV[@=]\K[\d.]+' | head -1)
     [ -z "$TEMP_CPU" ] && TEMP_CPU="0"
-    TEMP_GPU=$(echo "$line" | grep -oP 'GPU@\K[\d.]+' | head -1)
+    TEMP_GPU=$(echo "$line" | grep -oiP 'gpu@\K[\d.]+' | head -1)
     [ -z "$TEMP_GPU" ] && TEMP_GPU="0"
-    TEMP_THERMAL=$(echo "$line" | grep -oP 'thermal@\K[\d.]+' | head -1)
+    TEMP_THERMAL=$(echo "$line" | grep -oiP 'thermal@\K[\d.]+' | head -1)
+    [ -z "$TEMP_THERMAL" ] && TEMP_THERMAL=$(echo "$line" | grep -oiP 'tj@\K[\d.]+' | head -1)
     [ -z "$TEMP_THERMAL" ] && TEMP_THERMAL="0"
     POWER=$(echo "$line" | grep -oP 'VDD_IN \K\d+')
     [ -z "$POWER" ] && POWER="0"
