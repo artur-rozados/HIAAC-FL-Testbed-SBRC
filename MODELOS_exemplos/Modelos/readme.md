@@ -1,7 +1,7 @@
 
 Para rodar os experimentos federados, e você for alterar a quantidade de cliente que irão participar. Dessa forma, lembre-se de alterar o número de clientes no servidor.
 
-# LEMBRESE SE SALVAR E CRIAR UMA BRANCH PARA OS TESTES
+# LEMBRE-SE DE SALVAR E CRIAR UMA BRANCH PARA OS TESTES
 
 
 Alterar disso:
